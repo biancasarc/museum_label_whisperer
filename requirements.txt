@@ -1,0 +1,7 @@
+streamlit
+ultralytics
+opencv-python
+Pillow
+cvat-sdk
+requests
+pyyaml
