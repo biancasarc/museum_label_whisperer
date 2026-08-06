@@ -12,7 +12,7 @@ st.write("Train a YOLOv8 small detection model using the exported dataset.")
 
 with st.container(border=True):
     st.caption(f"Dataset configuration: `{DATASET_YAML.relative_to(PROJECT_ROOT)}`")
-    st.caption("Model: `yolov8s.pt` · Epochs: 50 · Image size: 640 · Workers: 4 · Device: MPS")
+    st.caption("Model: `yolov8s.pt` · Epochs: 20 · Image size: 640 · Workers: 4 ")
 
     start_training = st.button(
         "Start training",
@@ -30,10 +30,9 @@ if start_training:
             model = YOLO("yolov8s.pt")
             results = model.train(
                 data=str(DATASET_YAML),
-                epochs=10,
+                epochs=20,
                 imgsz=640,
                 workers=4,
-                device="mps",
                 name="1.1",
             )
     except Exception as error:
