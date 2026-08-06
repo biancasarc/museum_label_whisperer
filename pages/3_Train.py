@@ -12,7 +12,18 @@ st.write("Train a YOLOv8 small detection model using the exported dataset.")
 
 with st.container(border=True):
     st.caption(f"Dataset configuration: `{DATASET_YAML.relative_to(PROJECT_ROOT)}`")
-    st.caption("Model: `yolov8s.pt` · Epochs: 20 · Image size: 640 · Workers: 4 ")
+    st.caption("Model: `yolov8s.pt` · Image size: 640 · Workers: 4 ")
+
+    # let the user choose epochs (recommend at least 50)
+    epochs = st.number_input(
+        "Epochs",
+        min_value=1,
+        value=50,
+        step=1,
+        help="Number of training epochs. Recommended: at least 50 for good results.",
+    )
+    if epochs < 50:
+        st.warning("Recommendation: at least 50 epochs for better convergence.")
 
     start_training = st.button(
         "Start training",
@@ -30,7 +41,7 @@ if start_training:
             model = YOLO("yolov8s.pt")
             results = model.train(
                 data=str(DATASET_YAML),
-                epochs=20,
+                epochs=int(epochs),
                 imgsz=640,
                 workers=4,
                 name="1.1",

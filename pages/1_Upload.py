@@ -13,13 +13,13 @@ os.makedirs(DATA_FOLDER, exist_ok=True)
 st.title("Step 1 - Upload Images")
 
 image_dir = st.text_input(
-    "Directory containing your images",
+    "Add the path of the directory with the images you'd like to be cropped (raw files will not be modified)",
     placeholder="/full/path/to/specimen_images",
     key="upload_image_directory",
 )
 
 n_images = st.number_input(
-    "Number of images used for training and validation",
+    "Add the total number of images for training and validation (20% of these will be used for validation)",
     min_value=1,
     value=20,
     step=1
