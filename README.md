@@ -90,7 +90,7 @@ streamlit run app.py
 
 # Important notes
 
-⚠️ **Please ead a!!!**
+⚠️ **Pleaseread !!!**
 
 - The application is designed to run through the steps in order. **Skipping steps or proceeding before a process has finished successfully may cause errors.**  
   Make sure each button is clicked in sequence and that each process completes successfully before moving to the next step.
