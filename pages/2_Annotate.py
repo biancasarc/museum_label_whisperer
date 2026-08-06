@@ -1,6 +1,6 @@
 import streamlit as st
 
-from backend.cvat_manager import create_task, export_dataset, open_browser
+from backend.cvat_manager import create_task, export_dataset, open_browser, processing_yolo_dir
 
 
 st.title("Step 2 - Annotate")
@@ -41,3 +41,5 @@ if st.button("Export YOLO Dataset"):
             output_directory = export_dataset(st.session_state.task_id)
 
         st.success(f"Dataset exported: {output_directory}")
+        output_directory = processing_yolo_dir(output_directory)
+
