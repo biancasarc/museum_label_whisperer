@@ -56,7 +56,6 @@ if st.button("Import images"):
 
     selected = random.sample(image_files, n_images)
 
-    os.makedirs(DATA_FOLDER, exist_ok=True)
 
     progress = st.progress(0)
 
