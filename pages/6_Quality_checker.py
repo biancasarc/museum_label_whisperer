@@ -64,29 +64,74 @@ with col1:
 
 
 
+# Option 1: appearing as one excel row
+# with col2:
+
+#     if len(matching_rows) > 0:
+
+#         # Select multiple CSV columns
+#         selected_column = st.multiselect(
+#             "Select information to review:",
+#             df.columns[1:]
+#         )
+
+#         if selected_column:
+#             edited_row = st.data_editor(
+#                 matching_rows[selected_column],
+#                 num_rows="fixed",
+#                 use_container_width=True,
+#                 disabled=["Specimen.image"]
+#             )
+#         else:
+#             st.info("Select at least one column to review.")
+#             edited_row = None
+
+#     else:
+#         st.warning("No matching row found in the CSV.")
+#         edited_row = None
+
+# Option 2: arranged in different rows
 
 with col2:
-
     if len(matching_rows) > 0:
 
-        # Dropdown with all CSV columns
-        selected_column = st.selectbox(
+        selected_column = st.multiselect(
             "Select information to review:",
             df.columns[1:]
         )
 
-        # Show only the selected column
-        edited_row = st.data_editor(
-            matching_rows[["Specimen.image", selected_column]],
-            num_rows="fixed",
-            use_container_width=True,
-            disabled=["Specimen.image"]
-        )
+        if selected_column:
+
+            edited_data = {}
+
+            for index, row in matching_rows.iterrows():
+
+                edited_data[index] = {}
+
+                for column in selected_column:
+
+                    value = row[column]
+
+                    edited_data[index][column] = st.text_input(
+                        f"{column}:",
+                        value=str(value) if pd.notna(value) else "",
+                        key=f"{index}_{column}"
+                    )
+
+            # Convert edited values back into a DataFrame
+            edited_row = matching_rows.copy()
+
+            for index in edited_data:
+                for column in edited_data[index]:
+                    edited_row.loc[index, column] = edited_data[index][column]
+
+        else:
+            st.info("Select at least one column to review.")
+            edited_row = None
 
     else:
         st.warning("No matching row found in the CSV.")
         edited_row = None
-
 
 
 
@@ -95,7 +140,7 @@ with col2:
 # -----------------------------
 
 with col3:
-    if st.session_state.image_index > 1:
+    if st.session_state.image_index > 0:
         if st.button("Previous image", use_container_width=True):
             if edited_row is not None:
 
