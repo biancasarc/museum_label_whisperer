@@ -1,66 +1,52 @@
 import streamlit as st
+import shutil
 import pandas as pd
 from pathlib import Path
 
 
 IMAGE_FOLDER = Path("data/original")
-CSV_FILE = Path("results/data.csv")
+RAW_CSV = Path("results/data.csv")
+
+CSV_FILE = Path("results/modified_data.csv")
+
+def reset_widget_value(widget_key, original_value):
+    st.session_state[widget_key] = original_value
+
+
+if not CSV_FILE.exists():
+    shutil.copyfile(RAW_CSV, CSV_FILE)
 
 df = pd.read_csv(CSV_FILE)
+raw_df = pd.read_csv(RAW_CSV)
 
-
-# -----------------------------
-# Get images
-# -----------------------------
 
 image_files = sorted([
     f for f in IMAGE_FOLDER.iterdir()
-    if f.suffix.lower() in [".jpg", ".jpeg", ".png", ".tif", ".tiff"]
-])
+    if f.suffix.lower() in [".jpg", ".jpeg", ".png", ".tif", ".tiff"]]) # a list with all the images
 
-
-# -----------------------------
-# Keep track of current image
-# -----------------------------
 
 if "image_index" not in st.session_state:
-    st.session_state.image_index = 0
+    st.session_state.image_index = 0  #keeping track of the current image
 
-
-# -----------------------------
-# Current image
-# -----------------------------
 
 current_image = image_files[st.session_state.image_index]
 
-st.title("Specimen review")
+st.title("OCR Checking")
 
 st.write(
     f"Image {st.session_state.image_index + 1} "
-    f"of {len(image_files)}"
-)
+    f"of {len(image_files)}")
+
+#matching the current image with the row
+matching_rows = df[df["Specimen.image"] == current_image.name] 
 
 
-# -----------------------------
-# Find corresponding CSV row
-# -----------------------------
-
-matching_rows = df[
-    df["Specimen.image"] == current_image.name
-]
-
-
-# -----------------------------
-# Display image + editable row
-# -----------------------------
-
-col3, col4 = st.columns(2)
+col3, col4 = st.columns(2) 
 col1, col2 = st.columns(2)
 
 with col1:
     st.image( current_image, 
-             caption=current_image.name, 
-             width="stretch" )
+             caption=current_image.name,width="stretch" )
 
 
 
@@ -90,19 +76,18 @@ with col1:
 #         st.warning("No matching row found in the CSV.")
 #         edited_row = None
 
+
 # Option 2: arranged in different rows
 
 with col2:
     if len(matching_rows) > 0:
 
         selected_column = st.multiselect(
-            "Select information to review:",
-            df.columns[1:]
-        )
+            "Select column for checking:", df.columns[1:])
 
         if selected_column:
 
-            edited_data = {}
+            edited_data = {} # dictionary to store edited values
 
             for index, row in matching_rows.iterrows():
 
@@ -110,13 +95,60 @@ with col2:
 
                 for column in selected_column:
 
+                    # Current value from the edited CSV
                     value = row[column]
 
-                    edited_data[index][column] = st.text_input(
-                        f"{column}:",
-                        value=str(value) if pd.notna(value) else "",
-                        key=f"{index}_{column}"
-                    )
+                    # Find the corresponding original value from raw CSV
+                    image_name = row["Specimen.image"]
+
+                    original_row = raw_df[
+                        raw_df["Specimen.image"] == image_name
+                    ]
+
+                    original_value = original_row.iloc[0][column]
+
+                    # Create input and reset button next to each other
+                    input_col, reset_col = st.columns([12, 1])
+
+                    with input_col:
+                        edited_data[index][column] = st.text_input(
+                            f"{column}:",
+                            value=str(value) if pd.notna(value) else "",
+                            key=f"{index}_{column}"
+                        )
+
+                    with reset_col:
+                        st.markdown(
+                            '<div style="height: 7mm;"></div>',
+                            unsafe_allow_html=True,
+                        )
+                        st.button(
+                            "↺",
+                            key=f"reset_{index}_{column}",
+                            help="Reset to original OCR value",
+                            on_click=reset_widget_value,
+                            args=(
+                                f"{index}_{column}",
+                                str(original_value)
+                                if pd.notna(original_value)
+                                else "",
+                            ),
+                        )
+
+
+            # for index, row in matching_rows.iterrows():
+
+            #     edited_data[index] = {}
+
+            #     for column in selected_column:
+
+            #         value = row[column]
+
+            #         edited_data[index][column] = st.text_input(
+            #             f"{column}:",
+            #             value=str(value) if pd.notna(value) else "",
+            #             key=f"{index}_{column}"
+            #         )
 
             # Convert edited values back into a DataFrame
             edited_row = matching_rows.copy()
