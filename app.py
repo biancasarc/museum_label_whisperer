@@ -14,7 +14,7 @@ This app guides you through the entire workflow.
 ### Workflow
 
 1. Upload images
-2. Annotate them in CVAT
+2. Annotate them (draw boxes around the labels, directly in this app)
 3. Train YOLO
 4. Predict
 5. Crop labels
