@@ -6,7 +6,8 @@ from pathlib import Path
 import streamlit as st
 
 
-DATA_FOLDER = "data/original"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATA_FOLDER = PROJECT_ROOT / "data" / "original"
 
 os.makedirs(DATA_FOLDER, exist_ok=True)
 
@@ -60,7 +61,7 @@ if st.button("Import images"):
     progress = st.progress(0)
 
     for i, img in enumerate(selected, start=1):
-        shutil.copy2(img, Path(DATA_FOLDER) / img.name)
+        shutil.copy2(img, DATA_FOLDER / img.name)
         progress.progress(i / n_images)
 
     st.success(f"Imported {n_images} random images!")
