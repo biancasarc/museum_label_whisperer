@@ -1,4 +1,5 @@
 streamlit==1.59.0
 ultralytics==8.4.90
 opencv-python
-cvat_sdk==2.69.0
+streamlit-image-annotation==0.8.0
+
