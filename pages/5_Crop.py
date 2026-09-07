@@ -14,7 +14,7 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
 
 
 def find_latest_best_model() -> Path | None:
-    checkpoints = list(RUNS_DIRECTORY.glob("*/weights/best.pt"))
+    checkpoints = list(RUNS_DIRECTORY.glob("**/weights/best.pt")) if RUNS_DIRECTORY.is_dir() else []
     return max(checkpoints, key=lambda path: path.stat().st_mtime) if checkpoints else None
 
 
@@ -27,7 +27,12 @@ st.write("Create one cropped image for every high-confidence label detected by t
 
 if best_model is None:
     st.warning("No trained `best.pt` model was found. Complete Step 3 first.")
-    st.stop()
+    st.caption(f"Looked in: `{RUNS_DIRECTORY}`")
+    manual = st.text_input("…or paste the full path to a best.pt file", key="manual_best_pt")
+    if manual and Path(manual).expanduser().is_file():
+        best_model = Path(manual).expanduser().resolve()
+    else:
+        st.stop()
 
 with st.container(border=True):
     st.caption(f"Best model: `{best_model.relative_to(PROJECT_ROOT)}`")
@@ -95,7 +100,10 @@ if start_cropping:
                 progress.progress(image_number / len(image_paths))
                 continue
 
-            result = model.predict(source=str(image_path), imgsz=1024, verbose=False)[0]
+            # Predict on the very array we crop from. cv2.imread applies the EXIF
+            # rotation tag; predicting on the file path would not, and the boxes
+            # would land on the wrong part of a rotated photo.
+            result = model.predict(source=image, imgsz=1024, verbose=False)[0]
             if result.boxes is None or len(result.boxes) == 0:
                 progress.progress(image_number / len(image_paths))
                 continue
