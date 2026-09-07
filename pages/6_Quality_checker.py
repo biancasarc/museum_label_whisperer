@@ -3,15 +3,21 @@ import shutil
 import pandas as pd
 from pathlib import Path
 
+from backend.images import load_rgb, make_display_image
 
-IMAGE_FOLDER = Path("data/original")
-RAW_CSV = Path("results/data.csv")
 
-CSV_FILE = Path("results/modified_data.csv")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+IMAGE_FOLDER = PROJECT_ROOT / "data" / "original"
+RAW_CSV = PROJECT_ROOT / "results" / "data.csv"
+CSV_FILE = PROJECT_ROOT / "results" / "modified_data.csv"
 
 def reset_widget_value(widget_key, original_value):
     st.session_state[widget_key] = original_value
 
+
+if not RAW_CSV.exists():
+    st.warning(f"No OCR results found at `{RAW_CSV.relative_to(PROJECT_ROOT)}`. Run the OCR step first.")
+    st.stop()
 
 if not CSV_FILE.exists():
     shutil.copyfile(RAW_CSV, CSV_FILE)
@@ -45,8 +51,10 @@ col3, col4 = st.columns(2)
 col1, col2 = st.columns(2)
 
 with col1:
-    st.image( current_image, 
-             caption=current_image.name,width="stretch" )
+    # load_rgb applies the EXIF rotation tag, so photos taken with a rotated
+    # camera appear upright (st.image on the raw file would show them flipped)
+    display_img, _ = make_display_image(load_rgb(current_image), 1600)
+    st.image(display_img, caption=current_image.name, width="stretch")
 
 
 
