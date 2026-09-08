@@ -13,6 +13,20 @@ os.makedirs(DATA_FOLDER, exist_ok=True)
 
 st.title("Step 1 - Upload Images")
 
+col1, col2=st.columns(2)
+
+with col1:
+    st.markdown("""
+    Decide on a number of images you wish to annotate to train the label detection model. There
+    are a few characteristics to consider before deciding on the size of this subset:
+    * Are the labels very complex?
+    * Do the labels vary between images in color, shape, position? 
+    * Do the labels follow a pattern?
+    """)
+
+with col2:
+    st.image("learning_curve.png")
+
 image_dir = st.text_input(
     "Add the path of the directory with the images you'd like to be cropped (raw files will not be modified)",
     placeholder="/full/path/to/specimen_images",
@@ -66,3 +80,4 @@ if st.button("Import images"):
 
     st.success(f"Imported {n_images} random images!")
     st.info("Continue to Step 2.")
+
