@@ -143,30 +143,7 @@ remaining = n_images - done
 # --- progress ---------------------------------------------------------------
 st.progress(done / n_images, text=f"Image {index + 1} of {n_images} · {remaining} remaining to annotate")
 
-# --- navigation -------------------------------------------------------------
-nav_prev, nav_next, nav_jump = st.columns([1, 1, 3])
-with nav_prev:
-    st.button(
-        "◀ Previous", width="stretch", disabled=index == 0,
-        on_click=go, args=(-1, n_images),
-    )
-with nav_next:
-    st.button(
-        "Next ▶", width="stretch", disabled=index >= n_images - 1,
-        on_click=go, args=(1, n_images),
-    )
-with nav_jump:
-    def _fmt(i: int) -> str:
-        mark = "✅" if images[i].name in annotations else "⬜"
-        return f"{mark} {i + 1}. {images[i].name}"
 
-    jump = st.selectbox(
-        "Jump to image", options=list(range(n_images)), index=index,
-        format_func=_fmt, label_visibility="collapsed",
-    )
-    if jump != index:
-        st.session_state.annotate_index = jump
-        st.rerun()
 
 # --- annotator --------------------------------------------------------------
 try:
@@ -193,6 +170,20 @@ with st.expander("How to annotate", expanded=done == 0):
 """
     )
 
+# --- navigation -------------------------------------------------------------
+nav_prev, nav_next, nav_jump = st.columns([1, 1, 3])
+with nav_prev:
+    st.button(
+        "◀ Previous", width="stretch", disabled=index == 0,
+        on_click=go, args=(-1, n_images),
+    )
+with nav_next:
+    st.button(
+        "Next ▶", width="stretch", disabled=index >= n_images - 1,
+        on_click=go, args=(1, n_images),
+    )
+
+
 rev = st.session_state.annotate_rev.get(name, 0)
 result = detection(
     image_path=display_img,
@@ -201,7 +192,7 @@ result = detection(
     labels=[0] * len(display_boxes),
     width=display_img.size[0],
     height=display_img.size[1],
-    line_width=2,
+    line_width=4,
     use_space=True,
     key=f"annot::{name}::{rev}",
 )
