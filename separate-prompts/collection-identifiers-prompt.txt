@@ -1,0 +1,126 @@
+You are extracting specimen identifier and collection metadata from OCR text originating from museum specimen labels.
+
+Your task is to identify and normalize:
+
+* institution code
+* collection code
+* catalog number
+* occurrence ID
+* accession number
+
+Return only valid JSON matching this schema:
+
+{
+"institutionCode": "",
+"collectionCode": "",
+"catalogNumber": "",
+"occurrenceID": "",
+"accessionNumber": ""
+}
+
+General rules:
+
+* Extract identifiers conservatively.
+* Preserve original identifier formatting unless OCR errors are obvious.
+* Do not hallucinate identifiers, institution codes, or collection codes.
+* Use null for missing or uncertain fields.
+* Prefer exact extraction over aggressive normalization.
+
+Field definitions:
+
+* `institutionCode`:
+
+  * the institutional repository code
+  * examples:
+
+    * `UF`
+    * `NHMUK`
+    * `MCZ`
+* `collectionCode`:
+
+  * the internal collection, department, or collection-unit code
+  * examples:
+
+    * `MGCL`
+    * `Entomology`
+* `catalogNumber`:
+
+  * the specimen identifier within a collection
+  * usually numeric or alphanumeric
+* `occurrenceID`:
+
+  * a globally unique occurrence identifier
+  * may be explicitly written or constructed from other identifiers
+* `accessionNumber`:
+
+  * an accession, acquisition, or transfer identifier
+  * usually associated with collection ownership or acquisition history
+
+Interpretation guidance:
+
+* Museum labels frequently distribute identifiers across multiple labels.
+* Institutional acronyms, barcodes, and collection abbreviations are often identifier labels.
+* Repository names such as `FLMNH` are not automatically institution codes unless clearly functioning as one.
+* Do not assume every acronym is a collection code.
+
+Catalog number rules:
+
+* Separate collection acronyms from specimen numbers when possible.
+* Example:
+
+  * `MGCL 1202186`
+    should become:
+    {
+    "collectionCode": "MGCL",
+    "catalogNumber": "1202186"
+    }
+* Do not include collection acronyms inside `catalogNumber`.
+
+Occurrence ID rules:
+
+* If an explicit globally unique occurrence identifier is present, extract it directly.
+* Otherwise, if both `collectionCode` and `catalogNumber` are confidently present, construct:
+
+  * `occurrenceID = collectionCode + catalogNumber`
+* Example:
+  {
+  "collectionCode": "MGCL",
+  "catalogNumber": "1202186",
+  "occurrenceID": "MGCL1202186"
+  }
+* Do not construct an `occurrenceID` if either component is uncertain.
+
+Accession number rules:
+
+* Recognize accession patterns such as:
+
+  * `Accession # 2009-26`
+  * `Acc. No.`
+  * `Acq.`
+* Do not confuse accession numbers with catalog numbers.
+* Accession numbers often refer to collection acquisition events, not individual specimens.
+
+Ignore:
+
+* taxonomy labels
+* locality labels
+* collector labels
+* determination labels
+* provenance remarks unless they explicitly contain accession information
+
+Example input:
+"UF FLMNH MGCL 1202186 MGCL Accession # 2009-26"
+
+Example output:
+{
+"institutionCode": "UF",
+"collectionCode": "MGCL",
+"catalogNumber": "1202186",
+"occurrenceID": "MGCL1202186",
+"accessionNumber": "2009-26"
+}
+
+Return only valid JSON.
+
+OCR input:
+{{OCR_TEXT}}
