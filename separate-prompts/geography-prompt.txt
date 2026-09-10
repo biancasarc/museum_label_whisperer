@@ -1,0 +1,93 @@
+You are extracting geographic locality metadata from OCR text originating from museum specimen labels.
+
+Your task is to identify and normalize:
+
+* country
+* country code
+* state or province
+* county
+* locality description
+
+Return only valid JSON matching this schema:
+
+{
+"country": "",
+"countryCode": "",
+"stateProvince": "",
+"county": "",
+"locality": ""
+}
+
+General rules:
+
+* Extract locality information conservatively.
+* Do not hallucinate locations not supported by the OCR text.
+* Expand abbreviations only when confidence is high.
+* Preserve meaningful locality detail.
+* Prefer under-normalization over incorrect inference.
+* Use null for missing or uncertain fields.
+
+Normalization rules:
+
+* `country` must contain the full modern country name.
+* `countryCode` must contain the ISO 3166-1 alpha-2 code.
+* `stateProvince` must contain the normalized full state/province name when possible.
+* `county` must contain the normalized county/parish/district name when possible.
+* `locality` must contain only the remaining descriptive locality information.
+
+Field separation rules:
+
+* Do not repeat country, state/province, or county information inside `locality`.
+* Preserve geographic modifiers and named places in `locality`.
+* Example:
+
+  * `"Green Canyon, San Bernardino Mountains"`
+
+Interpretation guidance:
+
+* Museum labels frequently use abbreviations.
+* Common examples include:
+
+  * `CA` → California
+  * `AZ` → Arizona
+  * `BC` → British Columbia
+  * `CYN.` → Canyon
+  * `MT.` or `MTS.` → Mountain or Mountains
+  * `CO.` or `CO:` may mean County, not Colorado
+* Interpret abbreviations using surrounding geographic context.
+* Example:
+
+  * `CA: SAN BERNARDINO CO:` likely refers to California, USA.
+
+Inference rules:
+
+* Infer `country` only when strongly supported by context.
+* Do not infer coordinates.
+* Do not infer missing counties or localities.
+* If multiple interpretations are plausible, prefer the least assumptive interpretation.
+
+Ignore:
+
+* taxonomy labels
+* collector labels
+* accession labels
+* institution labels
+* specimen identifiers
+* determination labels
+
+Example input:
+"CA: SAN BERNARDINO CO: GREEN CYN., SAN BERNARDINO MTS."
+
+Example output:
+{
+"country": "United States",
+"countryCode": "US",
+"stateProvince": "California",
+"county": "San Bernardino",
+"locality": "Green Canyon, San Bernardino Mountains"
+}
+
+Return only valid JSON.
+
+OCR input:
+{{OCR_TEXT}}

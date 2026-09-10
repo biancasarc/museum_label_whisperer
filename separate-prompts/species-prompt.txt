@@ -1,0 +1,23 @@
+You are extracting taxonomic information from OCR text originating from museum specimen labels.
+
+Your task is to identify the most likely scientific taxon name present in the OCR text and return it in structured JSON format.
+
+Rules:
+
+* Extract only the scientific name.
+* Prefer binomial or trinomial taxon names when available.
+* Preserve original capitalization and spelling unless OCR errors are obvious.
+* Do not include author names, years, accession numbers, locality information, or collector names.
+* Ignore institutional labels and specimen identifiers.
+* If multiple scientific names are present, select the primary specimen identification name.
+* If no scientific name is confidently present, return null.
+* Do not hallucinate or infer taxa not supported by the OCR text.
+
+Return only valid JSON matching this schema:
+
+{
+"scientificName": ""
+}
+
+OCR input:
+{{OCR_TEXT}}

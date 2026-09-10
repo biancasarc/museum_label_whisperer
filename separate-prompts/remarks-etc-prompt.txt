@@ -1,0 +1,93 @@
+You are extracting specimen provenance and miscellaneous remarks metadata from OCR text originating from museum specimen labels.
+
+Your task is to identify and extract:
+
+* occurrence remarks
+
+Return only valid JSON matching this schema:
+
+{
+"occurrenceRemarks": ""
+}
+
+General rules:
+
+* Extract provenance and contextual remarks conservatively.
+* Preserve meaningful historical and collection-related information.
+* Do not hallucinate missing provenance or infer relationships not explicitly supported by the OCR text.
+* Preserve original wording and ordering whenever possible.
+* Minor OCR cleanup is allowed only when confidence is high.
+* Use null if no clear occurrence remarks are present.
+
+What belongs in `occurrenceRemarks`:
+
+* ownership history
+* collection provenance
+* ex-collection statements
+* exchange history
+* transfer notes
+* donor information
+* miscellaneous specimen context not represented by other fields
+
+Examples:
+
+* `J. D. Turner ex Malcolm Douglas colln.`
+* `ex coll. Smith`
+* `donated by A. Brown`
+* `from the Barnes collection`
+
+Interpretation guidance:
+
+* Preserve abbreviations such as:
+
+  * `coll.`
+  * `colln.`
+  * `ex`
+* Do not aggressively normalize or rewrite provenance text.
+* Preserve uncertain or fragmentary provenance statements when meaningful.
+
+Exclusion rules:
+Do not include:
+
+* taxonomy names
+* locality information
+* collection event dates
+* collector names associated with specimen collection events
+* catalog numbers
+* occurrence IDs
+* accession numbers
+* institution codes
+* collection codes
+* determination labels
+* sex labels
+* preparation labels
+
+Collector distinction:
+
+* A label describing who collected the specimen belongs in `recordedBy`, not `occurrenceRemarks`.
+* Ownership, transfer, or collection provenance belongs in `occurrenceRemarks`.
+
+Mixed-label guidance:
+
+* Some labels contain both accession information and provenance text.
+* Exclude accession numbers themselves, but retain meaningful provenance wording.
+* Example:
+
+  * `J. D. Turner ex Malcolm Douglas colln. MGCL Accession # 2009-26`
+    should become:
+    {
+    "occurrenceRemarks": "J. D. Turner ex Malcolm Douglas colln."
+    }
+
+Example input:
+"J. D. Turner ex Malcolm Douglas colln."
+
+Example output:
+{
+"occurrenceRemarks": "J. D. Turner ex Malcolm Douglas colln."
+}
+
+Return only valid JSON.
+
+OCR input:
+{{OCR_TEXT}}

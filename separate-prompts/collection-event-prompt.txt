@@ -1,0 +1,100 @@
+You are extracting specimen collection event metadata from OCR text originating from museum specimen labels.
+
+Your task is to identify:
+
+* the specimen collection date
+* the collector(s)
+* the basis of record
+
+Return only valid JSON matching this schema:
+
+{
+"eventDate": "",
+"recordedBy": "",
+"basisOfRecord": ""
+}
+
+Rules:
+
+* `eventDate` must be normalized to ISO 8601 format when possible:
+
+  * YYYY-MM-DD
+  * YYYY-MM
+  * YYYY
+* Interpret common historical entomological date formats, including:
+
+  * Roman numeral months (e.g. `V-9-1996`)
+  * abbreviated months
+  * partial dates
+  * slash-separated numeric dates
+* For slash-separated numeric dates using only Arabic numerals (example: `05/03/98`), interpret them primarily as:
+
+  * MM/DD/YY
+    unless other contextual evidence strongly suggests otherwise.
+* For two-digit years:
+
+  * if the year value is greater than 26, interpret it as 19XX
+  * otherwise interpret it as 20XX
+* Examples:
+
+  * `05/03/98` → `1998-05-03`
+  * `07/14/05` → `2005-07-14`
+  * `V-9-1996` → `1996-05-09`
+
+Event interpretation guidance:
+
+* Museum labels may contain multiple dates associated with different events.
+* Prioritize specimen collection dates over accession, determination, or provenance dates.
+* Labels may contain abbreviations such as:
+
+  * `ex` = from / out of
+  * `em.` = emerged
+* Dates associated with emergence events (`em.`) are often biologically relevant collection-event dates and may overlap with `eventDate`.
+* Do not interpret `ex` as indicating a collection event date by itself.
+* If multiple dates are present, prefer the date most directly associated with:
+
+  * collection
+  * capture
+  * rearing emergence
+  * specimen acquisition in the field
+* Ignore accession and determination dates unless no other plausible collection-event date exists.
+
+Collector rules:
+
+* `recordedBy` should contain the collector name(s).
+* Recognize common collector abbreviations such as:
+
+  * `LEG.`
+  * `leg.`
+  * `coll.`
+  * `collected by`
+* Preserve initials and formatting unless OCR errors are obvious.
+* Multiple collectors may be separated using `" | "`.
+* Do not infer collectors from accession or ownership labels unless they clearly indicate specimen collection.
+
+Basis of record rules:
+
+* `basisOfRecord` should usually be:
+
+  * `"PreservedSpecimen"`
+    when the OCR text clearly refers to a museum specimen label.
+
+Exclusions:
+
+* Ignore:
+
+  * institution labels
+  * taxonomy labels
+  * catalog numbers
+  * accession labels
+  * provenance/history labels
+  * determination labels
+
+Output rules:
+
+* If a field is absent or uncertain, return null.
+* Do not hallucinate missing data.
+* Return only valid JSON.
+
+OCR input:
+{{OCR_TEXT}}
