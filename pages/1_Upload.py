@@ -5,8 +5,10 @@ from pathlib import Path
 
 import streamlit as st
 
+current_proj = st.session_state.get("current_project", "No project selected")
+st.info(f"Current project: {current_proj}")
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[1] / "projects" / current_proj
 DATA_FOLDER = PROJECT_ROOT / "data" / "01_train_val_subset"
 
 os.makedirs(DATA_FOLDER, exist_ok=True)

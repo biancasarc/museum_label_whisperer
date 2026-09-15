@@ -8,9 +8,12 @@ import streamlit as st
 from ultralytics import YOLO
 from ultralytics.utils import LOGGER
 
+current_proj = st.session_state.get("current_project", "No project selected")
+st.info(f"Current project: {current_proj}")
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DATASET_YAML = PROJECT_ROOT / "data" / "yolo_dataset" / "data.yaml"
+APP_ROOT = Path(__file__).resolve().parents[1] 
+PROJECT_ROOT = Path(__file__).resolve().parents[1] / "projects" / current_proj
+DATASET_YAML = PROJECT_ROOT / "data" / "02_yolo_dataset" / "data.yaml"
 RUNS_DIRECTORY = PROJECT_ROOT / "runs" / "detect"
 TRAIN_LOG = PROJECT_ROOT / "runs" / "train_log.txt"
 
@@ -63,7 +66,7 @@ if start_training:
     try:
         with st.spinner("Training YOLO model… This may take a while (minutes to hours on a laptop CPU)."), \
                 open(TRAIN_LOG.with_suffix(".stdout.txt"), "w") as out, contextlib.redirect_stdout(out):
-            model = YOLO("yolov8s.pt")
+            model = YOLO(str(APP_ROOT / "yolov8s.pt"))
             results = model.train(
                 data=str(DATASET_YAML),
                 epochs=int(epochs),

@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 import streamlit as st
 
 st.set_page_config(
@@ -5,6 +7,28 @@ st.set_page_config(
  #   page_icon="🏷️",
     layout="wide"
 )
+
+current_proj = st.session_state.get("current_project", "No project selected")
+st.info(f"Current project: {current_proj}")
+
+st.markdown("# Project manager")
+
+PROJECT_ROOT = Path(__file__).resolve().parents[0]
+DATA_FOLDER = PROJECT_ROOT / "projects"
+
+os.makedirs(DATA_FOLDER, exist_ok=True)
+
+new_proj = st.text_input("Create a new project:")
+
+if st.button("Create"):
+    st.session_state["current_project"] = new_proj
+    os.makedirs(PROJECT_ROOT / "projects"/ new_proj)
+    st.rerun()
+
+if new_proj:
+    st.write(f"New project {new_proj} created.")
+
+    
 
 st.title("Museum Label Whisperer")
 

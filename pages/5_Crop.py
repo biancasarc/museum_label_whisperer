@@ -5,10 +5,12 @@ import cv2
 import streamlit as st
 from ultralytics import YOLO
 
+current_proj = st.session_state.get("current_project", "No project selected")
+st.info(f"Current project: {current_proj}")
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[1] / "projects" / current_proj
 RUNS_DIRECTORY = PROJECT_ROOT / "runs" / "detect"
-OUTPUT_DIRECTORY = PROJECT_ROOT / "data" / "cropping_result"
+OUTPUT_DIRECTORY = PROJECT_ROOT / "data" / "04_cropping_result"
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
 
 
