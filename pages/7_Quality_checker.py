@@ -7,7 +7,6 @@ from backend.images import load_rgb, make_display_image
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-IMAGE_FOLDER = PROJECT_ROOT / "data" / "original"
 RAW_CSV = PROJECT_ROOT / "results" / "data.csv"
 CSV_FILE = PROJECT_ROOT / "results" / "modified_data.csv"
 
@@ -25,9 +24,10 @@ if not CSV_FILE.exists():
 df = pd.read_csv(CSV_FILE)
 raw_df = pd.read_csv(RAW_CSV)
 
+saved_source = st.session_state.get("prediction_source_directory")
 
 image_files = sorted([
-    f for f in IMAGE_FOLDER.iterdir()
+    f for f in saved_source.iterdir()
     if f.suffix.lower() in [".jpg", ".jpeg", ".png", ".tif", ".tiff"]]) # a list with all the images
 
 

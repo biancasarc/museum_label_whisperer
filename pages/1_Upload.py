@@ -7,7 +7,7 @@ import streamlit as st
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DATA_FOLDER = PROJECT_ROOT / "data" / "original"
+DATA_FOLDER = PROJECT_ROOT / "data" / "01_train_val_subset"
 
 os.makedirs(DATA_FOLDER, exist_ok=True)
 
@@ -29,8 +29,7 @@ with col2:
 
 image_dir = st.text_input(
     "Add the path of the directory with the images you'd like to be cropped (raw files will not be modified)",
-    placeholder="/full/path/to/specimen_images",
-    key="upload_image_directory",
+    placeholder="/full/path/to/specimen_images"
 )
 
 n_images = st.number_input(

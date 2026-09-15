@@ -21,12 +21,12 @@ from backend.images import exif_orientation, load_rgb, make_display_image, raw_t
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-ORIGINAL_DIR = PROJECT_ROOT / "data" / "original"
+ORIGINAL_DIR = PROJECT_ROOT / "data" / "01_train_val_subset"
 ANNOTATIONS_FILE = PROJECT_ROOT / "data" / "annotations.json"
 DATASET_DIR = PROJECT_ROOT / "data" / "yolo_dataset"
 
 LABEL_LIST = ["label"]  # single class, id 0
-DISPLAY_MAX_SIDE = 900  # px; longest side of the image shown in the browser
+DISPLAY_MAX_SIDE = 700  # px; longest side of the image shown in the browser
 
 
 # ---------------------------------------------------------------------------
@@ -37,10 +37,9 @@ LOADER_VERSION = 2  # bump when load_rgb changes so cached (possibly rotated) im
 
 
 @st.cache_resource(show_spinner="Loading image…", max_entries=40)
-def get_display_image(path_str: str, mtime: float, version: int = LOADER_VERSION):
-    """Downscaled RGB copy for the browser + scale back to original pixels."""
+def get_display_image(path_str: str, mtime: float, max_side: int, version: int = LOADER_VERSION):
     img = load_rgb(Path(path_str))
-    display, scale = make_display_image(img, DISPLAY_MAX_SIDE)
+    display, scale = make_display_image(img, max_side)  # use max_side, not DISPLAY_MAX_SIDE
     return display, scale, img.size  # img.size == (width, height)
 
 
@@ -144,18 +143,7 @@ remaining = n_images - done
 st.progress(done / n_images, text=f"Image {index + 1} of {n_images} · {remaining} remaining to annotate")
 
 
-
 # --- annotator --------------------------------------------------------------
-try:
-    display_img, scale, original_size = get_display_image(str(current), current.stat().st_mtime, LOADER_VERSION)
-except Exception as error:
-    st.error(f"Could not open `{name}`: {error}")
-    st.stop()
-
-entry = annotations.get(name)
-saved_boxes = entry["boxes"] if entry else []
-# original pixels -> display pixels for the component
-display_boxes = [[v / scale for v in box] for box in saved_boxes]
 
 with st.expander("How to annotate", expanded=done == 0):
     st.markdown(
@@ -170,8 +158,35 @@ with st.expander("How to annotate", expanded=done == 0):
 """
     )
 
+size_slider, null,nav_prev, nav_next = st.columns(4)
+
+with size_slider:
+    img_size= st.slider(
+        "Change image display side:",
+        min_value = 300,
+        max_value = 1500,
+        value=700,
+        step=50,
+        width= "stretch"
+    )
+
+
+try:
+    display_img, scale, original_size = get_display_image(str(current), current.stat().st_mtime, img_size, LOADER_VERSION)
+except Exception as error:
+    st.error(f"Could not open `{name}`: {error}")
+    st.stop()
+
+entry = annotations.get(name)
+saved_boxes = entry["boxes"] if entry else []
+# original pixels -> display pixels for the component
+display_boxes = [[v / scale for v in box] for box in saved_boxes]
+
+
+
+
 # --- navigation -------------------------------------------------------------
-nav_prev, nav_next, nav_jump = st.columns([1, 1, 3])
+
 with nav_prev:
     st.button(
         "◀ Previous", width="stretch", disabled=index == 0,
@@ -204,7 +219,7 @@ if result is not None:
     # tolerant comparison so float round-tripping cannot trigger endless reruns
     if entry is None or [[round(float(v), 2) for v in b] for b in saved_boxes] != new_boxes:
         set_boxes(name, new_boxes, original_size)
-        st.rerun()
+
 
 status_col, act1, act2 = st.columns([3, 1, 1])
 with status_col:

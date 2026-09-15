@@ -132,14 +132,10 @@ def get_specimen_id(filename: str) -> str:
     """
     Recover the bare specimen ID from a cropped-label filename.
     Handles both naming conventions produced by the YOLO pipeline:
-      MGCL1202187_d_cropped_label_03.png  →  MGCL1202187
       MGCL1202187_label_03.png            →  MGCL1202187
     """
-    for pattern in (r"(.+?)_d_cropped_label_\d+", r"(.+?)_label_\d+"):
-        m = re.match(pattern, Path(filename).stem)
-        if m:
-            return m.group(1)
-    return Path(filename).stem
+    m = re.match(r"(.+)_label_\d+", Path(filename).stem)
+    return m.group(1) if m else Path(filename).stem
 
 
 # =========================================================
@@ -530,12 +526,22 @@ with st.container(border=True):
         "remarks":          "Remarks — provenance and miscellaneous notes",
     }
 
-    # Collect the (possibly edited) prompt texts from the UI
-    edited_prompts: dict[str, str] = {}
+    # Collect the (possibly edited) prompt texts and enabled state from the UI
+    edited_prompts:   dict[str, str]  = {}
+    selected_prompts: dict[str, bool] = {}
 
     for key, label in PROMPT_LABELS.items():
         filepath = STRUCT_PROMPT_FILES[key]
-        with st.expander(label):
+
+        # Checkbox sits outside the expander — visible without opening it
+        enabled = st.checkbox(
+            label,
+            value=True,
+            key=f"enable_{key}",
+        )
+        selected_prompts[key] = enabled
+
+        with st.expander("Edit prompt"):
             text = st.text_area(
                 label,
                 value=load_text_file(filepath),
@@ -555,6 +561,57 @@ with st.container(border=True):
                     # Clear the widget's session-state so the text area re-reads the file
                     st.session_state.pop(f"struct_prompt_{key}", None)
                     st.rerun()
+
+# --- Custom prompts ---
+st.markdown("**Custom prompts**")
+st.caption(
+    "Add extra prompts beyond the five built-in ones. "
+    "Each custom prompt receives the same specimen transcription and its full "
+    "JSON response is stored in a column named after the prompt."
+)
+
+# Initialise the list in session state on first load
+if "custom_prompts" not in st.session_state:
+    st.session_state["custom_prompts"] = []
+
+if st.button("➕ Add prompt", key="add_custom_prompt"):
+    # Use a timestamp-based ID so each entry is uniquely addressable
+    new_id = f"cp_{int(time.time() * 1000)}"
+    st.session_state["custom_prompts"].append({
+        "id":    new_id,
+        "label": f"Custom {len(st.session_state['custom_prompts']) + 1}",
+        "text":  "",
+    })
+    st.rerun()
+
+# Render one row per custom prompt
+for idx, cp in enumerate(st.session_state["custom_prompts"]):
+    cid = cp["id"]
+
+    col_en, col_name, col_del = st.columns([0.3, 5, 0.4])
+    with col_en:
+        # Enabled checkbox — same pattern as the fixed prompts above
+        st.checkbox("", value=True, key=f"cp_enable_{cid}", label_visibility="collapsed")
+    with col_name:
+        st.text_input(
+            "Prompt name",
+            value=cp["label"],
+            key=f"cp_label_{cid}",
+            label_visibility="collapsed",
+        )
+    with col_del:
+        if st.button("🗑️", key=f"cp_del_{cid}"):
+            st.session_state["custom_prompts"].pop(idx)
+            st.rerun()
+
+    with st.expander("Edit prompt"):
+        st.text_area(
+            "prompt text",
+            value=cp["text"],
+            height=220,
+            key=f"cp_text_{cid}",
+            label_visibility="collapsed",
+        )
 
 run_struct = st.button(
     "▶ Run Structuring", type="primary", key="run_struct_btn",
@@ -585,12 +642,31 @@ if run_struct:
         specimens = specimens[:max_specimens]
         st.info(f"Limited to first {max_specimens} specimen(s).")
 
+    # Collect enabled custom prompts — read widget values from session state
+    active_custom = [
+        {
+            "id":    cp["id"],
+            "label": st.session_state.get(f"cp_label_{cp['id']}", cp["label"]).strip(),
+            "text":  st.session_state.get(f"cp_text_{cp['id']}",  cp["text"]).strip(),
+        }
+        for cp in st.session_state.get("custom_prompts", [])
+        if st.session_state.get(f"cp_enable_{cp['id']}", True)
+    ]
+    # Drop custom prompts whose text area is still empty
+    active_custom = [cp for cp in active_custom if cp["text"]]
+
+    # Final CSV fields = Darwin Core base + one column per active custom prompt
+    custom_labels = [cp["label"] for cp in active_custom]
+    all_fields    = OUTPUT_FIELDS + custom_labels
+
     # Set up output directories (one sub-folder per prompt category for raw responses)
     struct_out = Path(struct_out_str).expanduser()
     struct_out.mkdir(parents=True, exist_ok=True)
     raw_struct_dir = struct_out / "raw_responses"
     for key in PROMPT_LABELS:
         (raw_struct_dir / key).mkdir(parents=True, exist_ok=True)
+    # Sub-folder for custom prompt raw responses
+    (raw_struct_dir / "custom").mkdir(parents=True, exist_ok=True)
 
     struct_csv = struct_out / "structured_dwc_metadata.csv"
 
@@ -617,12 +693,14 @@ if run_struct:
 
     if not struct_csv.exists():
         with open(struct_csv, "w", newline="", encoding="utf-8") as f:
-            csv.DictWriter(f, fieldnames=OUTPUT_FIELDS).writeheader()
+            csv.DictWriter(f, fieldnames=all_fields).writeheader()
 
     client = OpenAI(api_key=api_key)
 
-    # Token counts per prompt category
+    # Token counts per prompt category (fixed + custom)
     token_totals = {key: {"input": 0, "output": 0, "total": 0} for key in PROMPT_LABELS}
+    for cp in active_custom:
+        token_totals[cp["id"]] = {"input": 0, "output": 0, "total": 0}
 
     progress2      = st.progress(0)
     status2        = st.empty()
@@ -640,6 +718,10 @@ if run_struct:
 
         try:
             for key in PROMPT_LABELS:
+                # Skip prompts the user deselected
+                if not selected_prompts.get(key, True):
+                    continue
+
                 system_prompt  = edited_prompts[key]
                 raw_resp_path  = raw_struct_dir / key / f"{Path(specimen_image).stem}.txt"
 
@@ -659,13 +741,27 @@ if run_struct:
                     if field in parsed and parsed[field] is not None:
                         combined[field] = str(parsed[field])
 
+            # Run each enabled custom prompt; store its full JSON response in its
+            # own column (named after the prompt label).
+            for cp in active_custom:
+                raw_resp_path = raw_struct_dir / "custom" / f"{cp['id']}_{Path(specimen_image).stem}.txt"
+                if raw_resp_path.exists():
+                    raw_text = raw_resp_path.read_text(encoding="utf-8")
+                else:
+                    raw_text = call_structuring_prompt(
+                        client, model_name, cp["id"],
+                        cp["text"], transcription, token_totals,
+                    )
+                    raw_resp_path.write_text(raw_text, encoding="utf-8")
+                combined[cp["label"]] = raw_text.strip()
+
             # Fill any fields not covered by any prompt with an empty string
-            for field in OUTPUT_FIELDS:
+            for field in all_fields:
                 combined.setdefault(field, "")
 
             # Append the row — safe to interrupt, completed rows are already saved
             with open(struct_csv, "a", newline="", encoding="utf-8") as f:
-                csv.DictWriter(f, fieldnames=OUTPUT_FIELDS).writerow(combined)
+                csv.DictWriter(f, fieldnames=all_fields, extrasaction="ignore").writerow(combined)
 
         except Exception as e:
             struct_failed.append(specimen_image)
