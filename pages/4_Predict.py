@@ -7,7 +7,7 @@ from ultralytics import YOLO
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RUNS_DIRECTORY = PROJECT_ROOT / "runs" / "detect"
-DEFAULT_SOURCE_DIRECTORY = PROJECT_ROOT / "data" / "original"
+
 PREVIEW_DIRECTORY = PROJECT_ROOT / "data" / "prediction_preview"
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
 
@@ -20,7 +20,7 @@ def find_latest_best_model() -> Path | None:
 
 best_model = find_latest_best_model()
 saved_source = st.session_state.get("prediction_source_directory")
-source_default = saved_source or str(DEFAULT_SOURCE_DIRECTORY)
+
 
 st.title("Step 4 - Predict with the best model")
 st.write("Run the best checkpoint from the latest YOLO training run on your image directory.")
@@ -40,7 +40,7 @@ with st.container(border=True):
     with st.form("prediction_form"):
         source_directory = st.text_input(
             "Directory of images to predict",
-            value=source_default,
+            value=saved_source,
             help="This is the directory entered in Step 1. You can change it here if needed.",
         )
         start_prediction = st.form_submit_button(

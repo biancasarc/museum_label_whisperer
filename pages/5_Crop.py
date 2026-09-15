@@ -8,7 +8,6 @@ from ultralytics import YOLO
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RUNS_DIRECTORY = PROJECT_ROOT / "runs" / "detect"
-DEFAULT_SOURCE_DIRECTORY = PROJECT_ROOT / "data" / "original"
 OUTPUT_DIRECTORY = PROJECT_ROOT / "data" / "cropping_result"
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
 
@@ -20,7 +19,6 @@ def find_latest_best_model() -> Path | None:
 
 best_model = find_latest_best_model()
 saved_source = st.session_state.get("prediction_source_directory")
-source_default = saved_source or str(DEFAULT_SOURCE_DIRECTORY)
 
 st.title("Step 5 - Crop detected labels")
 st.write("Create one cropped image for every high-confidence label detected by the best model.")
@@ -41,7 +39,7 @@ with st.container(border=True):
     with st.form("crop_form"):
         source_directory = st.text_input(
             "Directory of images to crop",
-            value=source_default,
+            value=saved_source,
             help="Defaults to the directory entered in Step 1.",
         )
         image_limit = st.number_input(
