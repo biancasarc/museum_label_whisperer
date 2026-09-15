@@ -26,7 +26,7 @@ ANNOTATIONS_FILE = PROJECT_ROOT / "data" / "annotations.json"
 DATASET_DIR = PROJECT_ROOT / "data" / "yolo_dataset"
 
 LABEL_LIST = ["label"]  # single class, id 0
-DISPLAY_MAX_SIDE = 700  # px; longest side of the image shown in the browser
+img_size = 700  # px; longest side of the image shown in the browser
 
 
 # ---------------------------------------------------------------------------
@@ -39,7 +39,7 @@ LOADER_VERSION = 2  # bump when load_rgb changes so cached (possibly rotated) im
 @st.cache_resource(show_spinner="Loading image…", max_entries=40)
 def get_display_image(path_str: str, mtime: float, max_side: int, version: int = LOADER_VERSION):
     img = load_rgb(Path(path_str))
-    display, scale = make_display_image(img, max_side)  # use max_side, not DISPLAY_MAX_SIDE
+    display, scale = make_display_image(img, max_side)
     return display, scale, img.size  # img.size == (width, height)
 
 
@@ -160,15 +160,17 @@ with st.expander("How to annotate", expanded=done == 0):
 
 size_slider, null,nav_prev, nav_next = st.columns(4)
 
-with size_slider:
-    img_size= st.slider(
-        "Change image display side:",
-        min_value = 300,
-        max_value = 1500,
-        value=700,
-        step=50,
-        width= "stretch"
-    )
+
+### Image slider needs more testing, doesnt work properly yet
+# with size_slider:
+#     img_size= st.slider(
+#         "Change image display side:",
+#         min_value = 300,
+#         max_value = 1500,
+#         value=700,
+#         step=50,
+#         width= "stretch"
+#     )
 
 
 try:
@@ -219,6 +221,11 @@ if result is not None:
     # tolerant comparison so float round-tripping cannot trigger endless reruns
     if entry is None or [[round(float(v), 2) for v in b] for b in saved_boxes] != new_boxes:
         set_boxes(name, new_boxes, original_size)
+    # Auto-advance: Complete saves and moves to the next image automatically.
+    # On the last image, just refresh the UI so the saved status updates.
+    if index < n_images - 1:
+        st.session_state.annotate_index = index + 1
+    st.rerun()
 
 
 status_col, act1, act2 = st.columns([3, 1, 1])
@@ -227,7 +234,7 @@ with status_col:
         st.warning("Not saved yet — draw the boxes, then click **Complete**.")
     else:
         st.success(f"Saved: {len(saved_boxes)} box(es) on this image "
-                   f"({original_size[0]}×{original_size[1]} px original).")
+                   f"({original_size[0]}x{original_size[1]} px original).")
 with act1:
     if st.button("No labels here", width="stretch",
                  help="Save this image with zero boxes (it becomes a background example)."):
