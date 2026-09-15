@@ -19,11 +19,13 @@ from backend.dataset import (
 )
 from backend.images import exif_orientation, load_rgb, make_display_image, raw_to_upright_box
 
+current_proj = st.session_state.get("current_project", "No project selected")
+st.info(f"Current project: {current_proj}")
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[1] / "projects" / current_proj
 ORIGINAL_DIR = PROJECT_ROOT / "data" / "01_train_val_subset"
 ANNOTATIONS_FILE = PROJECT_ROOT / "data" / "annotations.json"
-DATASET_DIR = PROJECT_ROOT / "data" / "yolo_dataset"
+DATASET_DIR = PROJECT_ROOT / "data" / "02_yolo_dataset"
 
 LABEL_LIST = ["label"]  # single class, id 0
 img_size = 700  # px; longest side of the image shown in the browser

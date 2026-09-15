@@ -29,19 +29,22 @@ import time
 
 import streamlit as st
 
+current_proj = st.session_state.get("current_project", "No project selected")
+st.info(f"Current project: {current_proj}")
+
 # =========================================================
 # PATHS
 # =========================================================
 
-PROJECT_ROOT       = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[1] / "projects" / current_proj
 
 # Part 1 — OCR
-DEFAULT_IMAGE_DIR  = PROJECT_ROOT / "data" / "cropping_result"
-DEFAULT_OCR_DIR    = PROJECT_ROOT / "data" / "ocr_results"
+DEFAULT_IMAGE_DIR  = PROJECT_ROOT / "data" / "04_cropping_result"
+DEFAULT_OCR_DIR    = PROJECT_ROOT / "data" / "05_ocr_results"
 OCR_PROMPT_FILE    = PROJECT_ROOT / "data" / "ocr_prompt.txt"
 
 # Part 2 — Structuring
-DEFAULT_STRUCT_DIR = PROJECT_ROOT / "data" / "structured"
+DEFAULT_STRUCT_DIR = PROJECT_ROOT / "data" / "06_structured_output"
 PROMPT_DIR         = PROJECT_ROOT / "separate-prompts"
 
 # Mapping of internal key → prompt file on disk
