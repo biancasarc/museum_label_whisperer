@@ -30,7 +30,7 @@ import time
 import streamlit as st
 
 current_proj = st.session_state.get("current_project", "No project selected")
-st.info(f"Current project: {current_proj}")
+st.info(f"Current project: **{current_proj}**")
 
 # =========================================================
 # PATHS

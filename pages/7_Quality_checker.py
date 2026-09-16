@@ -6,7 +6,7 @@ from pathlib import Path
 from backend.images import load_rgb, make_display_image
 
 current_proj = st.session_state.get("current_project", "No project selected")
-st.info(f"Current project: {current_proj}")
+st.info(f"Current project: **{current_proj}**")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1] / "projects" / current_proj
 RAW_CSV = PROJECT_ROOT / "results" / "data.csv"
