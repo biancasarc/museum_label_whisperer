@@ -45,7 +45,7 @@ OCR_PROMPT_FILE    = PROJECT_ROOT / "data" / "ocr_prompt.txt"
 
 # Part 2 — Structuring
 DEFAULT_STRUCT_DIR = PROJECT_ROOT / "data" / "06_structured_output"
-PROMPT_DIR         = PROJECT_ROOT / "separate-prompts"
+PROMPT_DIR         = Path(__file__).resolve().parents[1] / "separate-prompts"
 
 # Mapping of internal key → prompt file on disk
 STRUCT_PROMPT_FILES = {
