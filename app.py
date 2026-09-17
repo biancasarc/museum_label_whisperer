@@ -2,6 +2,7 @@ import base64
 import os
 import random
 from pathlib import Path
+import shutil
 
 import pandas as pd
 import streamlit as st
@@ -39,7 +40,8 @@ def image_to_b64(path: Path) -> str:
 # ---------------------------------------------------------------------------
 
 current_proj = st.session_state.get("current_project", "No project selected")
-st.info(f"Current project: **{current_proj}**")
+if current_proj != "No project selected":
+    st.info(f"Current project: **{current_proj}**")
 
 # ---------------------------------------------------------------------------
 # Project manager
@@ -53,9 +55,12 @@ col_input, col_btn, col_or, col_select = st.columns([3, 1, 1, 4], vertical_align
 
 with col_input:
     new_proj = st.text_input("Create a new project:")
+    if " " in new_proj:
+        st.warning("Name cannot have spaces. Use underscores (_) instead.")
+        
 
 with col_btn:
-    if st.button("Create") and new_proj:
+    if st.button("Create") and new_proj and " " not in new_proj:
         if new_proj in projects:
             st.warning("A project with that name already exists.")
         else:
@@ -72,8 +77,8 @@ with col_select:
     if projects:
         active = st.session_state.get("current_project")
         proj_index = projects.index(active) if active in projects else 0
-        selected = st.selectbox("Choose an existing project:", options=projects, index=proj_index)
-        if selected != active:
+        selected = st.selectbox("Choose an existing project:", options=projects, index=None)
+        if selected != active and selected !=None:
             st.session_state["current_project"] = selected
             st.rerun()
     else:
@@ -88,7 +93,7 @@ if msg := st.session_state.pop("_created_msg", None):
 # ---------------------------------------------------------------------------
 
 
-st.markdown("#### Project overview")
+st.markdown("#### Projects overview")
 
 if not projects:
     st.info("No projects yet. Create one above to get started.")
@@ -136,6 +141,21 @@ else:
         use_container_width=True,
     )
 
+col1, col2, col3 = st.columns([3,1,5], vertical_alignment= "center")
+
+if projects:
+    with col1:
+        deleted_proj= st.selectbox("Delete a project:", options=projects, index = None)
+        if deleted_proj != None:
+            confirm = st.checkbox(f"I want to permanently delete '{deleted_proj}'")
+            with col2:    
+                if st.button("Delete", type="primary", disabled=not confirm):
+                    shutil.rmtree(DATA_FOLDER / deleted_proj)
+                    if st.session_state.get("current_project") == deleted_proj:
+                        st.session_state.pop("current_project", None)
+                    st.rerun()
+
+    
 
 # ---------------------------------------------------------------------------
 # About
