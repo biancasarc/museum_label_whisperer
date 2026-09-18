@@ -11,7 +11,8 @@ st.info(f"Current project: **{current_proj}**")
 PROJECT_ROOT = Path(__file__).resolve().parents[1] / "projects" / current_proj
 DATA_FOLDER = PROJECT_ROOT / "data" / "01_train_val_subset"
 
-os.makedirs(DATA_FOLDER, exist_ok=True)
+if current_proj != "No project selected":
+    os.makedirs(DATA_FOLDER, exist_ok=True)
 
 st.title("Step 1 - Upload Images")
 
@@ -33,6 +34,8 @@ image_dir = st.text_input(
     "Add the path of the directory with the images you'd like to be cropped (raw files will not be modified)",
     placeholder="/full/path/to/specimen_images"
 )
+
+
 
 n_images = st.number_input(
     "Add the total number of images for training and validation (20% of these will be used for validation)",

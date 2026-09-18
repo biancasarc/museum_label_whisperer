@@ -128,7 +128,7 @@ else:
             "Train":    done(trained),
             "Predict":  done(has_files(root / "data" / "03_prediction_preview")),
             "Crop":     done(has_files(root / "data" / "04_cropping_result")),
-            "OCR":      done(has_files(root / "data" / "ocr_results")),
+            "OCR":      done(has_files(root / "data" / "06_structured_output")),
         })
 
 

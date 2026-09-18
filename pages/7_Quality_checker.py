@@ -9,8 +9,8 @@ current_proj = st.session_state.get("current_project", "No project selected")
 st.info(f"Current project: **{current_proj}**")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1] / "projects" / current_proj
-RAW_CSV = PROJECT_ROOT / "results" / "data.csv"
-CSV_FILE = PROJECT_ROOT / "results" / "modified_data.csv"
+RAW_CSV = PROJECT_ROOT / "data" / "06_structured_output" / "structured_dwc_metadata.csv"
+CSV_FILE = PROJECT_ROOT / "data" / "07_quality_checking" / "corrected_metadata.csv"
 
 def reset_widget_value(widget_key, original_value):
     st.session_state[widget_key] = original_value
@@ -21,15 +21,23 @@ if not RAW_CSV.exists():
     st.stop()
 
 if not CSV_FILE.exists():
+    CSV_FILE.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(RAW_CSV, CSV_FILE)
 
-df = pd.read_csv(CSV_FILE)
-raw_df = pd.read_csv(RAW_CSV)
+df = pd.read_csv(CSV_FILE, dtype=str)
+raw_df = pd.read_csv(RAW_CSV, dtype=str)
 
 saved_source = st.session_state.get("prediction_source_directory")
 
+if saved_source == None:
+    saved_source = st.text_input("Input the path with the original images.")
+
+if not saved_source:
+    st.warning("No image directory found. Complete Step 1 first.")
+    st.stop()
+
 image_files = sorted([
-    f for f in saved_source.iterdir()
+    f for f in Path(saved_source).iterdir()
     if f.suffix.lower() in [".jpg", ".jpeg", ".png", ".tif", ".tiff"]]) # a list with all the images
 
 
@@ -46,7 +54,7 @@ st.write(
     f"of {len(image_files)}")
 
 #matching the current image with the row
-matching_rows = df[df["Specimen.image"] == current_image.name] 
+matching_rows = df[df["Specimen.image"].str.rsplit(".", n=1).str[0] == current_image.stem]
 
 
 col3, col4 = st.columns(2) 
@@ -187,9 +195,7 @@ with col3:
             if edited_row is not None:
 
                 # Find the original row
-                row_index = df[
-                    df["Specimen.image"] == current_image.name
-                ].index
+                row_index = matching_rows.index
 
                 # Save the edited value for the selected column
                 df.loc[row_index, selected_column] = (
@@ -209,9 +215,7 @@ with col4:
             if edited_row is not None:
 
                 # Find the original row
-                row_index = df[
-                    df["Specimen.image"] == current_image.name
-                ].index
+                row_index = matching_rows.index
 
                 # Save the edited value for the selected column
                 df.loc[row_index, selected_column] = (
