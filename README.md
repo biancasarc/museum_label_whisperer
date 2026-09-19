@@ -1,7 +1,11 @@
 # Museum Label Whisperer
 
-A Streamlit app that finds the labels in specimen photographs, trains a YOLO
-model to detect them, and crops each label out into its own image.
+An app that finds the things you care about inside a set of images, cuts them out,
+and turns any text in them into a table you can work with.
+
+You teach it what to look for by drawing boxes on a handful of images first, so it
+can learn to find anything that looks reasonably consistent — specimen labels, pages
+of a book, signs, forms, plant tags.
 
 ---
 
@@ -92,7 +96,7 @@ cd museum_label_whisperer
 
 ### 3. Create a Python environment (recommended)
 
-It is strongly recommended to install the Python dependencies in a virtual environment.
+It is strongly recommended to install the dependencies in a virtual environment.
 
 **macOS/Linux**
 
@@ -108,7 +112,7 @@ python -m venv .venv
 .venv\Scripts\activate
 ```
 
-Install the required Python packages:
+Install the required packages:
 
 ```bash
 python -m pip install -r requirements.txt
@@ -119,90 +123,170 @@ python -m pip install -r requirements.txt
 Make sure you are inside the `museum_label_whisperer` directory, then:
 
 ```bash
-streamlit run app.py
+python -m streamlit run app.py
 ```
 
 The app opens in your browser. Choose a step from the sidebar.
+
+> **Use `python -m streamlit`, not plain `streamlit`.** If you have Anaconda or
+> Miniconda installed, a bare `streamlit` command often starts a *different*
+> Python that has none of these packages, and the app fails with
+> `ModuleNotFoundError`. Writing it this way always uses the environment you
+> just activated.
+>
+> If your prompt shows `(base)` — with or without `(.venv)` — run
+> `conda deactivate` first, then `source .venv/bin/activate`. The prompt should
+> read `(.venv)` on its own.
+
+---
+
+# What you need before you start
+
+- **A folder of images.** They stay where they are; the app only ever copies them.
+- **An OpenAI API key**, but only for Step 6 (reading the text). Steps 1–5 work
+  without one. Get a key at https://platform.openai.com/api-keys — note that
+  reading text is charged per image by OpenAI, so it costs a small amount of
+  money to run.
+
+---
+
+# Projects
+
+The front page is where you create, choose and delete projects. Everything a
+project produces is kept in its own folder under `projects/<name>/data/`, so
+separate projects never overwrite each other's results.
+
+**Create or choose a project before you start Step 1.** The name shown at the top
+of every page is the project your work is being filed under.
+
+> Project names cannot contain spaces — use underscores instead.
+>
+> If you begin a step without choosing a project, the app files the work under a
+> folder literally called `No project selected`. Nothing is lost, but it is not
+> filed under a real project: pick one on the front page and run the step again.
 
 ---
 
 # Workflow
 
-Work through the steps **in order**, using the sidebar.
+Work through the steps **in order**, using the sidebar. Each step needs the one
+before it to have finished.
 
 ## Step 1 — Upload images
 
-Paste the full path to the folder holding your specimen photographs and choose
-how many to import. That many images are picked at random and **copied** into
-`data/original`. Your originals are never modified.
+Paste the full path to the folder holding your images and choose how many to bring
+in. That many are picked at random and **copied** into `data/01_train_val_subset`.
+Your originals are never changed.
 
-Import enough images to train on — around 20–50 is a reasonable start. 20 % of
-them are held back automatically for validation.
+Around 20–50 is a reasonable start. 20% are held back automatically so the app can
+check its own work. Use more if the objects you want to find are complex, or vary a
+lot between images.
 
 ## Step 2 — Annotate
 
-Draw a rectangle around **every label** in each photo, directly in the app.
+Draw a box around **every object** you want the app to find, directly in the app.
 
 - **Draw** a box: click and drag on an empty part of the image.
-- **Move / resize** a box: click it to select, then drag it or its corner handles.
+- **Move or resize** a box: click it to select, then drag it or its corner handles.
 - **Delete** a box: switch **Mode** (right of the image) from *Transform* to *Del*,
   click the box, then switch back to *Transform*.
-- Click **Complete** to save the annotations for each image.
+- Click **Complete** to save that image. The status line turns green.
+- For an image with nothing to find, click **Complete** without drawing, or use
+  **Nothing to find here**. These are useful — they teach the app what to ignore.
 
-Your boxes are saved to `data/annotations.json` as you go, so you can close the
-app and continue later.
+Your boxes are saved to `data/annotations.json` as you go, so you can close the app
+and come back later.
 
-When every image is done, click **Build training dataset**. This writes the YOLO
-dataset to `data/yolo_dataset` (80 % training / 20 % validation).
+When every image is done, click **Build training set**. This writes the training
+files to `data/02_yolo_dataset` (80% to learn from, 20% kept back for checking).
 
-Then open **Check the training labels** and page through a few images. Every red
-box should sit around a label. If they don't, fix the boxes above and rebuild.
+Then open **Check your boxes** and page through a few images. Every red box should
+sit around an object. If not, fix the boxes above and build again.
 
-> If you change any boxes afterwards, **click Build training dataset again** —
-> otherwise Step 3 trains on the old boxes. The app warns you when this happens.
+> If you change any boxes afterwards, **click Build training set again** —
+> otherwise Step 3 learns from the old boxes. The app warns you when this happens.
 
-## Step 3 — Train the YOLO model
+## Step 3 — Train the model
 
-Choose the number of epochs (at least 50 is recommended; more epochs means a
-better model but a longer wait) and click **Start training**.
+Choose the number of training rounds — at least 50 is recommended; more rounds
+means better results but a longer wait — then click **Start training**.
 
-Training can take minutes to hours depending on your computer and the number of
-images. The trained model is saved to:
+This can take minutes to hours depending on your computer and how many images you
+used. The trained model is saved to:
 
 ```text
 runs/detect/1.1/weights/best.pt
 ```
 
-A full training log is written to `runs/train_log.txt`.
+A full log is written to `runs/train_log.txt`. If training fails, that file usually
+says why.
 
 ## Step 4 — Predict
 
-Runs the trained model over a folder of images so you can see what it detects.
-Annotated preview images are written to `data/prediction_preview` — open a few
-and check the boxes look right before cropping.
+Runs the trained model over a folder of images so you can see what it finds, before
+you cut anything out. Preview images with the boxes drawn on are written to
+`data/03_prediction_preview` — open a few and check they look right.
 
-## Step 5 — Crop detected labels
+## Step 5 — Crop
 
-Creates one cropped image per detected label. You can set:
+Cuts out one image per object found. You can set:
 
-- **Number of random images** — 0 processes every image in the folder.
-- **Crop buffer** — extra pixels kept around each label.
-- **Minimum confidence** — only detections above this score are cropped
-  (0.90 by default; lower it if too few labels are being cropped).
+- **How many images to do** — 0 does all of them.
+- **Extra space around each cut-out** — pixels kept around the edge.
+- **Minimum confidence** — only objects the model is at least this sure about are
+  cut out (0.90 by default; lower it if too few are coming through).
 
-Crops are saved to:
+Cut-outs are saved to `data/04_cropping_result`.
+
+## Step 6 — Read the text
+
+Needs an **OpenAI API key**, pasted into the settings box at the top. It is used
+only while the app is open and is never saved to your computer. You will need to
+paste it again each time you restart.
+
+This step has two parts, which you can run separately:
+
+**Part 1 — Read the text.** Sends each cut-out image off to be read and saves the
+result to `data/05_ocr_results`. You can edit the reading instructions and save
+them; they are kept in `data/ocr_prompt.txt`.
+
+**Part 2 — Sort into columns.** Groups the cut-outs back together by the image they
+came from, then uses five editable prompts to sort the text into columns of your
+choice — these can follow an existing standard (GBIF Darwin Core, for example), or
+whatever suits your own records. You can add your own prompts too. Results go to
+`data/06_structured_output`.
+
+Both parts skip anything already done, so you can stop and resume.
+
+## Step 7 — Check the results
+
+Go through the results one image at a time, with the original image beside them, and
+correct anything that came out wrong. Use ↺ next to any field to put the original
+text back.
+
+Reads `data/06_structured_output/structured_dwc_metadata.csv` and writes your
+corrections to `data/07_quality_checking/corrected_metadata.csv`, leaving the
+original untouched.
+
+---
+
+# Where everything is saved
+
+Everything lives under the folder for the project you have chosen:
 
 ```text
-data/cropping_result
+projects/<your project>/
+  data/01_train_val_subset     images brought in at Step 1
+  data/annotations.json        the boxes you drew at Step 2
+  data/02_yolo_dataset         the training set built at Step 2
+  data/03_prediction_preview   previews from Step 4
+  data/04_cropping_result      cut-out images from Step 5
+  data/05_ocr_results          text read at Step 6, part 1
+  data/06_structured_output    columns sorted at Step 6, part 2
+  data/07_quality_checking     your corrections from Step 7
+  runs/detect/<name>/weights/  the trained model from Step 3
+  runs/train_log.txt           training log
 ```
-
-## Step 6 — OCR checking
-
-Review and correct the transcribed text against the photograph, one image at a
-time. Use ↺ next to any field to restore the original OCR value.
-
-This step reads `results/data.csv` (the OCR output) and writes your corrections
-to `results/modified_data.csv`, leaving the original untouched.
 
 ---
 
@@ -210,12 +294,13 @@ to `results/modified_data.csv`, leaving the original untouched.
 
 ⚠️ **Please read!**
 
-- The app is designed to run through the steps **in order**. Skipping a step, or
-  moving on before a process has finished, may cause errors. Wait for each step
-  to report success before continuing.
+- Run the steps **in order**, and wait for each one to report success before moving
+  on. Skipping ahead, or starting a step before the last one finished, causes errors.
 
-- **Rotated photos.** Photographs carrying an EXIF rotation tag are handled
-  consistently at every step, so boxes always line up with what you see on
-  screen. Nothing is required from you.
+- **Starting fresh.** To begin again with a different set of images, create a new
+  project on the front page. The old project's results stay where they are. To
+  redo a project in place instead, delete its `data/` and `runs/` folders.
 
-- The results of every step are in the data directory of each project
+- **Rotated images.** Images carrying an EXIF rotation tag are handled consistently
+  at every step, so boxes always line up with what you see on screen. Nothing is
+  required from you.

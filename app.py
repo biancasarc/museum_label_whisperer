@@ -54,9 +54,9 @@ projects = [p.name for p in DATA_FOLDER.iterdir() if p.is_dir()]
 col_input, col_btn, col_or, col_select = st.columns([3, 1, 1, 4], vertical_alignment="bottom")
 
 with col_input:
-    new_proj = st.text_input("Create a new project. Insert project name:")
+    new_proj = st.text_input("Create a new project. Give it a name:")
     if " " in new_proj:
-        st.warning("Name cannot have spaces. Use underscores (_) instead.")
+        st.warning("Names cannot contain spaces — use underscores (_) instead.")
         
 
 with col_btn:
@@ -165,21 +165,28 @@ if projects:
 st.divider()
 st.title("Museum Label Whisperer")
 st.markdown("""
-This app transcribes museum specimen labels into organised, machine-readable metadata.
+This app finds the things you care about inside a set of images, cuts them out,
+and turns any text in them into a table you can work with.
+
+You teach it what to look for by drawing boxes on a handful of images first, so it
+can learn to find anything that looks reasonably consistent — specimen labels, pages
+of a book, signs, forms, plant tags.
 
 ## How it works
 
-### Label cropping
-1. **Upload** — import a subset of specimen images for training
-2. **Annotate** — draw bounding boxes around each label
-3. **Train** — train a YOLOv8 detection model on your annotations
-4. **Predict** — run the trained model on your full image collection
-5. **Crop** — extract each detected label as an individual image
+### Finding and cutting out
+1. **Upload** — bring in a handful of images to learn from
+2. **Annotate** — draw a box around each object you want it to find
+3. **Train** — the app learns what to look for from your boxes
+4. **Predict** — see what it finds, so you can check it got it right
+5. **Crop** — cut out everything it found, one image per object
 
-### OCR
-Transcribe the cropped label images into structured Darwin Core metadata fields.
+### Reading the text
+Turn each cut-out image into text, then sort that text into columns of your choice —
+these can follow an existing standard (GBIF Darwin Core, for example), or whatever
+suits your own records.
 
-### Quality checking
-Review a subset of OCR results — images with low confidence scores, conflicting reads,
-or a random sample — and correct any errors before export.
+### Checking
+Go through the results alongside the original images, and correct anything that came
+out wrong before you export.
 """)

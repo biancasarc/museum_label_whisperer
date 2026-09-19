@@ -244,12 +244,11 @@ def call_structuring_prompt(
 # PAGE HEADER
 # =========================================================
 
-st.title("Step 6 — OCR & Data Structuring")
+st.title("Step 6 — Read the text")
 st.markdown(
-    "**Part 1** — OCR: transcribe each cropped label image into raw text.  \n"
-    "**Part 2** — Structuring: extract Darwin Core metadata fields using five "
-    "specialist prompts.  \n"
-    "Run them in order, or re-run either independently."
+    "**Part 1** — Read the text in each cut-out image (OCR).  \n"
+    "**Part 2** — Sort that text into columns of your choice, using five prompts you can edit.  \n"
+    "Run them in order, or run either one again on its own."
 )
 
 # =========================================================
@@ -263,14 +262,14 @@ with st.container(border=True):
         model_name = st.text_input(
             "Model",
             value="gpt-5.1",
-            help="Used for both OCR and structuring (e.g. gpt-4o, gpt-5.1).",
+            help="Used for both reading and sorting the text (e.g. gpt-4o, gpt-5.1).",
         )
     with col2:
         api_key = st.text_input(
             "OpenAI API key",
             value=st.session_state.get("openai_api_key", ""),
             type="password",
-            help="Used only in this session — never saved to disk.",
+            help="Used only while the app is open — never saved to your computer.",
         )
         if api_key:
             st.session_state["openai_api_key"] = api_key
@@ -280,42 +279,42 @@ with st.container(border=True):
 # =========================================================
 
 st.divider()
-st.header("Part 1 — OCR")
-st.write("Send each cropped label image to the vision model and save the raw transcription.")
+st.header("Part 1 — Read the text")
+st.write("Send each cut-out image off to be read, and save the text that comes back.")
 
 with st.container(border=True):
     st.subheader("Configuration")
     col1, col2 = st.columns(2)
     with col1:
         image_dir_str = st.text_input(
-            "Input folder (cropped labels)",
+            "Folder of cut-out images",
             value=str(DEFAULT_IMAGE_DIR),
-            help="Folder produced by Step 5 — Crop.",
+            help="The folder Step 5 created.",
         )
     with col2:
         ocr_out_str = st.text_input(
-            "OCR output folder",
+            "Where to save the text",
             value=str(DEFAULT_OCR_DIR),
         )
 
     col3, col4 = st.columns(2)
     with col3:
         upscale_factor = st.number_input(
-            "Upscale factor",
+            "Enlarge images by",
             min_value=1.0, max_value=5.0, value=1.9, step=0.1,
-            help="Images are upscaled before sending to improve OCR accuracy.",
+            help="Images are enlarged before being sent, which usually makes the text easier to read.",
         )
     with col4:
         num_specimens = st.number_input(
-            "Max specimens (0 = all)", min_value=0, value=0, step=1,
+            "How many items to do (0 = all of them)", min_value=0, value=0, step=1,
             key="ocr_max_specimens",
         )
 
 with st.container(border=True):
-    st.subheader("OCR prompt")
+    st.subheader("Reading instructions (prompt)")
     st.caption(
-        "Sent as the system instruction for every image. "
-        "Save to keep changes between sessions."
+        "These instructions are sent along with every image. "
+        "Save your changes to keep them next time."
     )
 
     ocr_prompt = st.text_area(
@@ -339,13 +338,13 @@ with st.container(border=True):
             st.rerun()
 
 run_ocr = st.button(
-    "▶ Run OCR", type="primary", key="run_ocr_btn",
+    "▶ Read the text", type="primary", key="run_ocr_btn",
     icon=":material/image:",
 )
 
 if run_ocr:
     if not api_key:
-        st.error("Please enter your OpenAI API key in the shared configuration above.")
+        st.error("Please enter your OpenAI API key in the settings above.")
         st.stop()
 
     image_dir = Path(image_dir_str).expanduser()
@@ -358,7 +357,7 @@ if run_ocr:
         if p.is_file() and p.suffix.lower() in {".png", ".jpg", ".jpeg", ".tif", ".tiff"}
     )
     if not image_paths:
-        st.error("No images found in the input folder.")
+        st.error("No images found in that folder.")
         st.stop()
 
     # Apply per-specimen limit
@@ -394,7 +393,7 @@ if run_ocr:
     if already_done:
         st.info(f"Resuming: {len(already_done)} image(s) already done, {len(remaining)} remaining.")
     if not remaining:
-        st.success("All images already processed — nothing to do.")
+        st.success("Every image has already been read — nothing to do.")
         st.stop()
 
     if not csv_path.exists():
@@ -484,10 +483,12 @@ if run_ocr:
 # =========================================================
 
 st.divider()
-st.header("Part 2 — Data Structuring")
+st.header("Part 2 — Sort into columns")
 st.write(
-    "Reads the OCR CSV, groups label crops by specimen, then runs five specialist "
-    "prompts to extract Darwin Core metadata fields."
+    "Takes the text from Part 1, groups the cut-outs back together by the image they "
+    "came from, then uses five prompts to sort that text into columns of your choice — "
+    "these can follow an existing standard (GBIF Darwin Core, for example), or whatever "
+    "suits your own records."
 )
 
 with st.container(border=True):
@@ -495,27 +496,27 @@ with st.container(border=True):
     col1, col2 = st.columns(2)
     with col1:
         struct_in_str = st.text_input(
-            "Input CSV (OCR results)",
+            "Spreadsheet of text from Part 1",
             value=str(DEFAULT_OCR_DIR / "ocr_results.csv"),
-            help="The CSV produced by Part 1.",
+            help="The file Part 1 created.",
         )
     with col2:
         struct_out_str = st.text_input(
-            "Structuring output folder",
+            "Where to save the columns",
             value=str(DEFAULT_STRUCT_DIR),
         )
 
     max_specimens = st.number_input(
-        "Max specimens (0 = all)", min_value=0, value=0, step=1,
+        "How many items to do (0 = all of them)", min_value=0, value=0, step=1,
         key="struct_max_specimens",
     )
 
 # --- Five editable structuring prompts ---
 with st.container(border=True):
-    st.subheader("Structuring prompts")
+    st.subheader("Sorting instructions (prompts)")
     st.caption(
-        "One specialist prompt per metadata category. Each is called separately "
-        "with the specimen's combined transcription text as the user message. "
+        "One prompt per group of columns. Each one is run separately, and is given all "
+        "the text found for a single item. "
         "The `{{OCR_TEXT}}` placeholder at the end of each file is for reference — "
         "the transcription is injected automatically, not substituted into the prompt."
     )
@@ -568,9 +569,9 @@ with st.container(border=True):
 # --- Custom prompts ---
 st.markdown("**Custom prompts**")
 st.caption(
-    "Add extra prompts beyond the five built-in ones. "
-    "Each custom prompt receives the same specimen transcription and its full "
-    "JSON response is stored in a column named after the prompt."
+    "Add your own prompts on top of the five built-in ones. "
+    "Each one is given the same text, and whatever it returns is stored in a "
+    "column named after the prompt."
 )
 
 # Initialise the list in session state on first load
@@ -617,13 +618,13 @@ for idx, cp in enumerate(st.session_state["custom_prompts"]):
         )
 
 run_struct = st.button(
-    "▶ Run Structuring", type="primary", key="run_struct_btn",
+    "▶ Sort into columns", type="primary", key="run_struct_btn",
     icon=":material/table:",
 )
 
 if run_struct:
     if not api_key:
-        st.error("Please enter your OpenAI API key in the shared configuration above.")
+        st.error("Please enter your OpenAI API key in the settings above.")
         st.stop()
 
     struct_in = Path(struct_in_str).expanduser()
@@ -636,7 +637,7 @@ if run_struct:
         specimen_transcriptions = aggregate_by_specimen(struct_in)
 
     if not specimen_transcriptions:
-        st.error("No specimen data found in the OCR results CSV.")
+        st.error("No text found in that file.")
         st.stop()
 
     specimens = list(specimen_transcriptions.items())  # [(specimen_image, transcription)]
@@ -691,7 +692,7 @@ if run_struct:
             f"{len(remaining_specimens)} remaining."
         )
     if not remaining_specimens:
-        st.success("All specimens already structured — nothing to do.")
+        st.success("Everything has already been sorted — nothing to do.")
         st.stop()
 
     if not struct_csv.exists():

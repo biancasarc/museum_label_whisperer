@@ -22,8 +22,8 @@ def find_latest_best_model() -> Path | None:
 best_model = find_latest_best_model()
 saved_source = st.session_state.get("prediction_source_directory")
 
-st.title("Step 5 - Crop detected labels")
-st.write("Create one cropped image for every high-confidence label detected by the best model.")
+st.title("Step 5 — Crop")
+st.write("Cut out every object the model is confident about, saving each as its own image.")
 
 if best_model is None:
     st.warning("No trained `best.pt` model was found. Complete Step 3 first.")
@@ -40,19 +40,19 @@ with st.container(border=True):
 
     with st.form("crop_form"):
         source_directory = st.text_input(
-            "Directory of images to crop",
+            "Folder of images to crop",
             value=saved_source,
-            help="Defaults to the directory entered in Step 1.",
+            help="Defaults to the folder you chose in Step 1.",
         )
         image_limit = st.number_input(
-            "Number of random images (0 processes all images)",
+            "How many images to do (0 = all of them)",
             min_value=0,
             value=0,
             step=1,
         )
-        buffer = st.number_input("Crop buffer (pixels)", min_value=0, value=10, step=1)
+        buffer = st.number_input("Extra space around each cut-out (pixels)", min_value=0, value=10, step=1)
         confidence_threshold = st.number_input(
-            "Minimum confidence",
+            "Minimum confidence (0 to 1)",
             min_value=0.0,
             max_value=1.0,
             value=0.90,
@@ -60,7 +60,7 @@ with st.container(border=True):
             format="%.2f",
         )
         start_cropping = st.form_submit_button(
-            "Create crops",
+            "Cut out objects",
             type="primary",
             icon=":material/content_cut:",
         )
@@ -80,7 +80,7 @@ if start_cropping:
         image_paths = image_paths[:image_limit]
 
     if not image_paths:
-        st.error("No supported images were found in the selected directory.")
+        st.error("No images found in that folder.")
         st.stop()
 
     st.session_state["prediction_source_directory"] = str(source_path.resolve())

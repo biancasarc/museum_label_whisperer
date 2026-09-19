@@ -1,8 +1,13 @@
 import streamlit as st
+import base64
+import re
 import shutil
+from io import BytesIO
+
 import pandas as pd
 from pathlib import Path
 
+from backend.folder_picker import PickerUnavailable, pick_folder
 from backend.images import load_rgb, make_display_image
 
 current_proj = st.session_state.get("current_project", "No project selected")
@@ -12,8 +17,42 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1] / "projects" / current_proj
 RAW_CSV = PROJECT_ROOT / "data" / "06_structured_output" / "structured_dwc_metadata.csv"
 CSV_FILE = PROJECT_ROOT / "data" / "07_quality_checking" / "corrected_metadata.csv"
 
+IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
+DISPLAY_MAX_SIDE = 2400  # decoded once per image; zooming only scales it in the browser
+
+
 def reset_widget_value(widget_key, original_value):
     st.session_state[widget_key] = original_value
+
+
+def specimen_id(crop_name: str) -> str:
+    """`DSC_0127_label_03.png` -> `DSC_0127`, matching how Step 6 groups cut-outs."""
+    match = re.match(r"(.+)_label_\d+", Path(crop_name).stem)
+    return match.group(1) if match else Path(crop_name).stem
+
+
+@st.cache_resource(show_spinner="Loading image…", max_entries=8)
+def image_data_uri(path_str: str, mtime: float) -> str:
+    """The image, EXIF-corrected and downscaled once, as a JPEG data URI.
+
+    Cached on path + modification time so dragging the zoom slider re-renders in
+    the browser instead of decoding a 40-megapixel photograph again.
+    """
+    display, _ = make_display_image(load_rgb(Path(path_str)), DISPLAY_MAX_SIDE)
+    buffer = BytesIO()
+    display.save(buffer, format="JPEG", quality=85)
+    return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode()
+
+
+def zoomable_image(path_str: str, mtime: float, zoom: float) -> str:
+    """Image in a box that scrolls once zoomed wider than the column."""
+    return (
+        '<div style="overflow:auto; max-height:75vh;'
+        ' border:1px solid rgba(128,128,128,0.35); border-radius:0.5rem;">'
+        f'<img src="{image_data_uri(path_str, mtime)}"'
+        f' style="width:{zoom * 100:.0f}%; max-width:none; display:block;"/>'
+        "</div>"
+    )
 
 
 if not RAW_CSV.exists():
@@ -27,31 +66,113 @@ if not CSV_FILE.exists():
 df = pd.read_csv(CSV_FILE, dtype=str)
 raw_df = pd.read_csv(RAW_CSV, dtype=str)
 
-saved_source = st.session_state.get("prediction_source_directory")
+# The Browse button writes here; Step 1 fills prediction_source_directory. The
+# box is always shown so the folder can be changed, not only when it is unset.
+CHOSEN_FOLDER = "quality_check_image_dir"
 
-if saved_source == None:
-    saved_source = st.text_input("Input the path with the original images.")
+default_source = (
+    st.session_state.get(CHOSEN_FOLDER)
+    or st.session_state.get("prediction_source_directory")
+    or ""
+)
+
+col_path, col_browse = st.columns([5, 1])
+
+with col_path:
+    saved_source = st.text_input(
+        "Folder containing the original images",
+        value=default_source,
+        placeholder="/full/path/to/your/images",
+    )
+
+with col_browse:
+    st.markdown('<div style="height: 7mm;"></div>', unsafe_allow_html=True)
+    if st.button("Browse…", width="stretch"):
+        try:
+            chosen = pick_folder("Choose the folder with the original images")
+        except PickerUnavailable as error:
+            st.warning(f"Could not open a folder window: {error}. Type the path instead.")
+        else:
+            if chosen:
+                st.session_state[CHOSEN_FOLDER] = chosen
+                st.rerun()
 
 if not saved_source:
-    st.warning("No image directory found. Complete Step 1 first.")
+    st.warning("Choose the folder holding your original images, or complete Step 1 first.")
     st.stop()
 
-image_files = sorted([
-    f for f in Path(saved_source).iterdir()
-    if f.suffix.lower() in [".jpg", ".jpeg", ".png", ".tif", ".tiff"]]) # a list with all the images
+source_path = Path(saved_source).expanduser()
+if not source_path.is_dir():
+    st.error(f"That folder does not exist: {source_path}")
+    st.stop()
+
+# Show every image Step 5 cut something out of — not every image in the folder.
+# Walking the whole folder buries you in blank screens, and hides the case worth
+# seeing: an image that was cropped but whose text never came through Step 6.
+CROPS_DIR = PROJECT_ROOT / "data" / "04_cropping_result"
+
+crop_counts: dict[str, int] = {}
+if CROPS_DIR.is_dir():
+    for crop in CROPS_DIR.iterdir():
+        if crop.is_file() and crop.suffix.lower() in IMAGE_SUFFIXES:
+            key = specimen_id(crop.name)
+            crop_counts[key] = crop_counts.get(key, 0) + 1
+
+if not crop_counts:
+    st.warning(
+        f"No cut-out images found in `{CROPS_DIR.relative_to(PROJECT_ROOT)}`. "
+        "Complete Step 5 first."
+    )
+    st.stop()
+
+image_files = sorted(
+    f for f in source_path.iterdir()
+    if f.is_file() and f.suffix.lower() in IMAGE_SUFFIXES and f.stem in crop_counts
+)
+
+if not image_files:
+    st.warning(
+        f"None of the images in `{source_path}` match the cut-outs in "
+        f"`{CROPS_DIR.relative_to(PROJECT_ROOT)}`. Is this the folder Step 5 used?"
+    )
+    st.stop()
+
+# Which images made it all the way through to text, and which did not.
+have_text = set(df["Specimen.image"].astype(str).str.rsplit(".", n=1).str[0])
 
 
 if "image_index" not in st.session_state:
     st.session_state.image_index = 0  #keeping track of the current image
 
 
+# The list changes as you re-run earlier steps, so never trust a stale index.
+st.session_state.image_index = min(st.session_state.image_index, len(image_files) - 1)
 current_image = image_files[st.session_state.image_index]
 
-st.title("OCR Checking")
+st.title("Step 7 — Check the results")
 
+without_text = [f for f in image_files if f.stem not in have_text]
 st.write(
-    f"Image {st.session_state.image_index + 1} "
-    f"of {len(image_files)}")
+    f"Image {st.session_state.image_index + 1} of {len(image_files)} with cut-outs"
+    + (f" · {len(without_text)} have no text yet" if without_text else "")
+)
+
+
+def jump_label(position: int) -> str:
+    image = image_files[position]
+    mark = "✅" if image.stem in have_text else "⚠️"
+    return f"{mark} {position + 1}. {image.name} · {crop_counts[image.stem]} cut-out(s)"
+
+
+jump = st.selectbox(
+    "Jump to image",
+    options=list(range(len(image_files))),
+    index=st.session_state.image_index,
+    format_func=jump_label,
+)
+if jump != st.session_state.image_index:
+    st.session_state.image_index = jump
+    st.rerun()
 
 #matching the current image with the row
 matching_rows = df[df["Specimen.image"].str.rsplit(".", n=1).str[0] == current_image.stem]
@@ -61,10 +182,18 @@ col3, col4 = st.columns(2)
 col1, col2 = st.columns(2)
 
 with col1:
-    # load_rgb applies the EXIF rotation tag, so photos taken with a rotated
-    # camera appear upright (st.image on the raw file would show them flipped)
-    display_img, _ = make_display_image(load_rgb(current_image), 1600)
-    st.image(display_img, caption=current_image.name, width="stretch")
+    # A fixed key means the zoom level survives into the next image instead of
+    # snapping back to 1x every time you move on.
+    zoom = st.slider(
+        "Zoom", min_value=1.0, max_value=6.0, value=1.0, step=0.25,
+        format="%.2fx", key="qc_zoom",
+        help="Cut-outs can be small. Zoom in, then scroll inside the image to read them.",
+    )
+    st.markdown(
+        zoomable_image(str(current_image), current_image.stat().st_mtime, zoom),
+        unsafe_allow_html=True,
+    )
+    st.caption(f"{current_image.name} · {crop_counts[current_image.stem]} cut-out(s)")
 
 
 
@@ -87,11 +216,11 @@ with col1:
 #                 disabled=["Specimen.image"]
 #             )
 #         else:
-#             st.info("Select at least one column to review.")
+#             st.info("Choose at least one column to check.")
 #             edited_row = None
 
 #     else:
-#         st.warning("No matching row found in the CSV.")
+#         st.warning("No saved text found for this image.")
 #         edited_row = None
 
 
@@ -101,7 +230,7 @@ with col2:
     if len(matching_rows) > 0:
 
         selected_column = st.multiselect(
-            "Select column for checking:", df.columns[1:])
+            "Which columns do you want to check?", df.columns[1:])
 
         if selected_column:
 
@@ -143,7 +272,7 @@ with col2:
                         st.button(
                             "↺",
                             key=f"reset_{index}_{column}",
-                            help="Reset to original OCR value",
+                            help="Put the original text back",
                             on_click=reset_widget_value,
                             args=(
                                 f"{index}_{column}",
@@ -176,11 +305,14 @@ with col2:
                     edited_row.loc[index, column] = edited_data[index][column]
 
         else:
-            st.info("Select at least one column to review.")
+            st.info("Choose at least one column to check.")
             edited_row = None
 
     else:
-        st.warning("No matching row found in the CSV.")
+        st.warning(
+            f"This image has {crop_counts[current_image.stem]} cut-out(s), but no text "
+            "came through Step 6. Re-run Step 6, or check the cut-outs are readable."
+        )
         edited_row = None
 
 
@@ -191,7 +323,7 @@ with col2:
 
 with col3:
     if st.session_state.image_index > 0:
-        if st.button("Previous image", use_container_width=True):
+        if st.button("◀ Previous image", use_container_width=True):
             if edited_row is not None:
 
                 # Find the original row
@@ -210,7 +342,7 @@ with col3:
 
 with col4:
     if st.session_state.image_index < len(image_files) - 1:
-        if st.button("Next image", use_container_width=True):
+        if st.button("Next image ▶", use_container_width=True):
 
             if edited_row is not None:
 
@@ -228,7 +360,7 @@ with col4:
                 st.session_state.image_index += 1
                 st.rerun()
     else:
-        st.success("You reached the last image.")
+        st.success("That was the last image.")
 
 
 
