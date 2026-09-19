@@ -152,14 +152,18 @@ The app opens in your browser. Choose a step from the sidebar.
 
 # Projects
 
-The front page lets you create, choose and delete projects.
+The front page is where you create, choose and delete projects. Everything a
+project produces is kept in its own folder under `projects/<name>/data/`, so
+separate projects never overwrite each other's results.
 
-> ⚠️ **Projects do not yet keep your work separate.** Creating one makes a folder
-> under `projects/` and shows its name at the top of each page, but every step
-> still reads and writes the same shared `data/` folder. Running a second project
-> will overwrite the first one's results. Until this is finished, work on one
-> project at a time, and copy the `data/` folder somewhere safe before starting
-> another.
+**Create or choose a project before you start Step 1.** The name shown at the top
+of every page is the project your work is being filed under.
+
+> Project names cannot contain spaces — use underscores instead.
+>
+> If you begin a step without choosing a project, the app files the work under a
+> folder literally called `No project selected`. Nothing is lost, but it is not
+> filed under a real project: pick one on the front page and run the step again.
 
 ---
 
@@ -268,17 +272,20 @@ original untouched.
 
 # Where everything is saved
 
+Everything lives under the folder for the project you have chosen:
+
 ```text
-data/01_train_val_subset     images brought in at Step 1
-data/annotations.json        the boxes you drew at Step 2
-data/02_yolo_dataset         the training set built at Step 2
-runs/detect/<name>/weights/  the trained model from Step 3
-runs/train_log.txt           training log
-data/03_prediction_preview   previews from Step 4
-data/04_cropping_result      cut-out images from Step 5
-data/05_ocr_results          text read at Step 6, part 1
-data/06_structured_output    columns sorted at Step 6, part 2
-data/07_quality_checking     your corrections from Step 7
+projects/<your project>/
+  data/01_train_val_subset     images brought in at Step 1
+  data/annotations.json        the boxes you drew at Step 2
+  data/02_yolo_dataset         the training set built at Step 2
+  data/03_prediction_preview   previews from Step 4
+  data/04_cropping_result      cut-out images from Step 5
+  data/05_ocr_results          text read at Step 6, part 1
+  data/06_structured_output    columns sorted at Step 6, part 2
+  data/07_quality_checking     your corrections from Step 7
+  runs/detect/<name>/weights/  the trained model from Step 3
+  runs/train_log.txt           training log
 ```
 
 ---
@@ -290,9 +297,9 @@ data/07_quality_checking     your corrections from Step 7
 - Run the steps **in order**, and wait for each one to report success before moving
   on. Skipping ahead, or starting a step before the last one finished, causes errors.
 
-- **Starting fresh.** To begin again with a different set of images, delete the
-  `data/` and `runs/` folders (or move them somewhere safe first — see the warning
-  under **Projects** above).
+- **Starting fresh.** To begin again with a different set of images, create a new
+  project on the front page. The old project's results stay where they are. To
+  redo a project in place instead, delete its `data/` and `runs/` folders.
 
 - **Rotated images.** Images carrying an EXIF rotation tag are handled consistently
   at every step, so boxes always line up with what you see on screen. Nothing is
