@@ -2,5 +2,5 @@ streamlit==1.59.0
 ultralytics==8.4.90
 opencv-python
 streamlit-image-annotation==0.8.0
-pillow=12.3.0
-openai=3.8.0
+pillow==12.3.0
+openai==3.8.0
