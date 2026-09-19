@@ -24,8 +24,8 @@ best_model = find_latest_best_model()
 saved_source = st.session_state.get("prediction_source_directory")
 
 
-st.title("Step 4 - Predict with the best model")
-st.write("Run the best checkpoint from the latest YOLO training run on your image directory.")
+st.title("Step 4 — Predict")
+st.write("See what the trained model finds, so you can check it works before cutting anything out.")
 
 if best_model is None:
     st.warning("No trained `best.pt` model was found. Complete Step 3 first.")
@@ -41,12 +41,12 @@ with st.container(border=True):
 
     with st.form("prediction_form"):
         source_directory = st.text_input(
-            "Directory of images to predict",
+            "Folder of images to search",
             value=saved_source,
-            help="This is the directory entered in Step 1. You can change it here if needed.",
+            help="Defaults to the folder you chose in Step 1. You can change it here.",
         )
         start_prediction = st.form_submit_button(
-            "Run prediction",
+            "Find objects",
             type="primary",
             icon=":material/play_arrow:",
         )
@@ -64,7 +64,7 @@ if start_prediction:
         if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
     )
     if not image_paths:
-        st.error("No supported images were found in the selected directory.")
+        st.error("No images found in that folder.")
         st.stop()
 
     PREVIEW_DIRECTORY.mkdir(parents=True, exist_ok=True)

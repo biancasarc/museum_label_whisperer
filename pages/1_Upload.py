@@ -5,6 +5,8 @@ from pathlib import Path
 
 import streamlit as st
 
+from backend.folder_picker import PickerUnavailable, pick_folder
+
 current_proj = st.session_state.get("current_project", "No project selected")
 st.info(f"Current project: **{current_proj}**")
 
@@ -14,31 +16,51 @@ DATA_FOLDER = PROJECT_ROOT / "data" / "01_train_val_subset"
 if current_proj != "No project selected":
     os.makedirs(DATA_FOLDER, exist_ok=True)
 
-st.title("Step 1 - Upload Images")
+st.title("Step 1 — Upload images")
 
 col1, col2=st.columns(2)
 
 with col1:
     st.markdown("""
-    Decide on a number of images you wish to annotate to train the label detection model. There
-    are a few characteristics to consider before deciding on the size of this subset:
-    * Are the labels very complex?
-    * Do the labels vary between images in color, shape, position? 
-    * Do the labels follow a pattern?
+    Choose how many images to start with. The app learns from the boxes you draw on
+    them, so a small, well-chosen set goes a long way. Use more images if:
+    * The objects you want to find are complex or detailed
+    * They vary a lot between images in colour, shape or position
+    * Use fewer if they always look much the same
     """)
 
 with col2:
     st.image("learning_curve.png")
 
-image_dir = st.text_input(
-    "Add the path of the directory with the images you'd like to be cropped (raw files will not be modified)",
-    placeholder="/full/path/to/specimen_images"
-)
+# The Browse button writes the chosen path here; the text box reads it back, so
+# typing a path by hand still works exactly as before.
+CHOSEN_FOLDER = "upload_image_dir"
+
+col_path, col_browse = st.columns([5, 1])
+
+with col_path:
+    image_dir = st.text_input(
+        "Folder containing your images (your originals are never changed)",
+        value=st.session_state.get(CHOSEN_FOLDER, ""),
+        placeholder="/full/path/to/your/images",
+    )
+
+with col_browse:
+    st.markdown('<div style="height: 7mm;"></div>', unsafe_allow_html=True)
+    if st.button("Browse…", width="stretch"):
+        try:
+            chosen = pick_folder("Choose the folder with your images")
+        except PickerUnavailable as error:
+            st.warning(f"Could not open a folder window: {error}. Type the path instead.")
+        else:
+            if chosen:
+                st.session_state[CHOSEN_FOLDER] = chosen
+                st.rerun()
 
 
 
 n_images = st.number_input(
-    "Add the total number of images for training and validation (20% of these will be used for validation)",
+    "How many images to bring in (the app keeps 20% back to check its own work)",
     min_value=1,
     value=20,
     step=1
@@ -47,7 +69,7 @@ n_images = st.number_input(
 if st.button("Import images"):
 
     if not os.path.isdir(image_dir):
-        st.error("Directory does not exist.")
+        st.error("That folder does not exist.")
         st.stop()
 
     # Keep the original directory available as the prediction source in Step 4.
@@ -64,7 +86,7 @@ if st.button("Import images"):
     ]
 
     if len(image_files) == 0:
-        st.error("No supported image files found.")
+        st.error("No images found in that folder.")
         st.stop()
 
     if n_images > len(image_files):
