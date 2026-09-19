@@ -30,10 +30,10 @@ raw_df = pd.read_csv(RAW_CSV, dtype=str)
 saved_source = st.session_state.get("prediction_source_directory")
 
 if saved_source == None:
-    saved_source = st.text_input("Input the path with the original images.")
+    saved_source = st.text_input("Folder containing the original images")
 
 if not saved_source:
-    st.warning("No image directory found. Complete Step 1 first.")
+    st.warning("No image folder found. Complete Step 1 first.")
     st.stop()
 
 image_files = sorted([
@@ -47,7 +47,7 @@ if "image_index" not in st.session_state:
 
 current_image = image_files[st.session_state.image_index]
 
-st.title("OCR Checking")
+st.title("Step 7 — Check the results")
 
 st.write(
     f"Image {st.session_state.image_index + 1} "
@@ -101,7 +101,7 @@ with col2:
     if len(matching_rows) > 0:
 
         selected_column = st.multiselect(
-            "Select column for checking:", df.columns[1:])
+            "Which columns do you want to check?", df.columns[1:])
 
         if selected_column:
 
@@ -143,7 +143,7 @@ with col2:
                         st.button(
                             "↺",
                             key=f"reset_{index}_{column}",
-                            help="Reset to original OCR value",
+                            help="Put the original text back",
                             on_click=reset_widget_value,
                             args=(
                                 f"{index}_{column}",
@@ -191,7 +191,7 @@ with col2:
 
 with col3:
     if st.session_state.image_index > 0:
-        if st.button("Previous image", use_container_width=True):
+        if st.button("◀ Previous image", use_container_width=True):
             if edited_row is not None:
 
                 # Find the original row
@@ -210,7 +210,7 @@ with col3:
 
 with col4:
     if st.session_state.image_index < len(image_files) - 1:
-        if st.button("Next image", use_container_width=True):
+        if st.button("Next image ▶", use_container_width=True):
 
             if edited_row is not None:
 
@@ -228,7 +228,7 @@ with col4:
                 st.session_state.image_index += 1
                 st.rerun()
     else:
-        st.success("You reached the last image.")
+        st.success("That was the last image.")
 
 
 

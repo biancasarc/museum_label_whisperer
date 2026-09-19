@@ -104,10 +104,10 @@ def go(delta: int, n: int):
 # Page
 # ---------------------------------------------------------------------------
 
-st.title("Step 2 - Annotate")
+st.title("Step 2 — Annotate")
 st.write(
-    "Draw a rectangle around **every label** in each photo. Your boxes are saved "
-    "as you go, so you can close the app and continue later."
+    "Draw a box around **every object** you want the app to find. Your boxes are "
+    "saved as you go, so you can close the app and come back later."
 )
 
 get_state()
@@ -142,7 +142,7 @@ done = sum(1 for p in images if p.name in annotations)
 remaining = n_images - done
 
 # --- progress ---------------------------------------------------------------
-st.progress(done / n_images, text=f"Image {index + 1} of {n_images} · {remaining} remaining to annotate")
+st.progress(done / n_images, text=f"Image {index + 1} of {n_images} · {remaining} still to do")
 
 
 # --- annotator --------------------------------------------------------------
@@ -151,12 +151,12 @@ with st.expander("How to annotate", expanded=done == 0):
     st.markdown(
         """
 - **Draw** a box: click and drag on an empty part of the image.
-- **Move / resize** a box: click it to select, then drag it or its corner handles.
+- **Move or resize** a box: click it to select, then drag it or its corner handles.
 - **Delete** a box: switch **Mode** (right of the image) from *Transform* to *Del*, click the box,
-  then switch back to *Transform* to keep drawing.
+  then switch back to *Transform* to carry on drawing.
 - When the image is done, click **Complete**.
-  This saves the boxes — the status line below the image turns green.
-- When you're done annotating, click "Build training dataset" underneath.
+  This saves your boxes — the status line below the image turns green.
+- Once you have been through every image, click **Build training set** below.
 """
     )
 
@@ -233,76 +233,77 @@ if result is not None:
 status_col, act1, act2 = st.columns([3, 1, 1])
 with status_col:
     if entry is None:
-        st.warning("Not saved yet — draw the boxes, then click **Complete**.")
+        st.warning("Not saved yet — draw your boxes, then click **Complete**.")
     else:
         st.success(f"Saved: {len(saved_boxes)} box(es) on this image "
                    f"({original_size[0]}x{original_size[1]} px original).")
 with act1:
-    if st.button("No labels here", width="stretch",
-                 help="Save this image with zero boxes (it becomes a background example)."):
+    if st.button("Nothing to find here", width="stretch",
+                 help="Save this image with no boxes. Useful — it teaches the app what to ignore."):
         set_boxes(name, [], original_size)
         bump_rev(name)
         st.rerun()
 with act2:
     if st.button("Clear boxes", width="stretch", disabled=not saved_boxes,
-                 help="Remove all saved boxes on this image."):
+                 help="Remove every box saved on this image."):
         set_boxes(name, [], original_size)
         bump_rev(name)
         st.rerun()
 
 # --- build dataset ----------------------------------------------------------
 st.divider()
-st.subheader("Build training dataset")
+st.subheader("Build training set")
 st.caption(
-    f"Copies the images to `{(DATASET_DIR / 'images').relative_to(PROJECT_ROOT)}` and writes YOLO "
-    f"label files to `{(DATASET_DIR / 'labels').relative_to(PROJECT_ROOT)}` "
-    "(80 % train / 20 % validation). Your originals are not modified."
+    f"Copies your images to `{(DATASET_DIR / 'images').relative_to(PROJECT_ROOT)}` and saves the box "
+    f"positions to `{(DATASET_DIR / 'labels').relative_to(PROJECT_ROOT)}`. "
+    "80% is used for learning and 20% is kept back to check the results. "
+    "Your originals are not changed."
 )
 
 unannotated = [p.name for p in images if p.name not in annotations]
 build_anyway = True
 if unannotated:
     st.warning(
-        f"{len(unannotated)} image(s) have not been annotated yet: "
+        f"{len(unannotated)} image(s) still have no boxes: "
         + ", ".join(unannotated[:5]) + (" …" if len(unannotated) > 5 else "")
     )
     build_anyway = st.checkbox(
-        "Build anyway (unannotated images are treated as having no labels)", value=False
+        "Build anyway — treat those images as having nothing to find", value=False
     )
 
 total_boxes = sum(len(e.get("boxes", [])) for e in annotations.values())
 if total_boxes == 0:
-    st.info("Draw at least one box before building the dataset.")
+    st.info("Draw at least one box before building the training set.")
 
 if st.button(
-    "Build training dataset", type="primary", icon=":material/dataset:",
+    "Build training set", type="primary", icon=":material/dataset:",
     disabled=not build_anyway or total_boxes == 0,
 ):
-    with st.spinner("Writing YOLO dataset…"):
+    with st.spinner("Building the training set…"):
         try:
             out = build_yolo_dataset(ORIGINAL_DIR, annotations, DATASET_DIR)
         except Exception as error:
-            st.error(f"Building the dataset failed: {error}")
+            st.error(f"Could not build the training set: {error}")
         else:
             n_train = len((out / "train.txt").read_text().splitlines())
             n_val = len((out / "val.txt").read_text().splitlines())
             st.success(
-                f"Dataset ready in `{out.relative_to(PROJECT_ROOT)}`: "
-                f"{n_train} training and {n_val} validation images, {total_boxes} boxes."
+                f"Training set ready in `{out.relative_to(PROJECT_ROOT)}`: "
+                f"{n_train} images to learn from, {n_val} kept back for checking, {total_boxes} boxes in total."
             )
             st.info("Continue to Step 3 to train the model.")
             st.session_state["dataset_built"] = True
 
 # --- verify what the model will actually see --------------------------------
 if (DATASET_DIR / "train.txt").is_file():
-    with st.expander("Check the training labels (what YOLO will see)", expanded=st.session_state.pop("dataset_built", False)):
+    with st.expander("Check your boxes (what the app will learn from)", expanded=st.session_state.pop("dataset_built", False)):
         st.caption(
-            "These are the files in `data/yolo_dataset`, read exactly the way the trainer reads them. "
-            "Every red box should surround a label. If not, fix the boxes above and rebuild."
+            "These are the saved files, read back exactly the way the app will read them when it learns. "
+            "Every red box should sit around an object. If not, fix the boxes above and build again."
         )
         built = sorted((DATASET_DIR / "images").glob("*/*.*"))
         if built:
-            pick = st.selectbox("Training image", options=built, format_func=lambda p: f"{p.parent.name}/{p.name}")
+            pick = st.selectbox("Image", options=built, format_func=lambda p: f"{p.parent.name}/{p.name}")
             label_file = DATASET_DIR / "labels" / pick.parent.name / f"{pick.stem}.txt"
             try:
                 st.image(render_yolo_labels(pick, label_file), caption=f"{pick.name} · {label_file.name}")
