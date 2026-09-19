@@ -5,6 +5,8 @@ import cv2
 import streamlit as st
 from ultralytics import YOLO
 
+from backend.folder_picker import browse_input
+
 current_proj = st.session_state.get("current_project", "No project selected")
 st.info(f"Current project: **{current_proj}**")
 
@@ -28,7 +30,13 @@ st.write("Cut out every object the model is confident about, saving each as its 
 if best_model is None:
     st.warning("No trained `best.pt` model was found. Complete Step 3 first.")
     st.caption(f"Looked in: `{RUNS_DIRECTORY}`")
-    manual = st.text_input("…or paste the full path to a best.pt file", key="manual_best_pt")
+    manual = browse_input(
+        "…or choose a best.pt file yourself",
+        state_key="manual_best_pt",
+        prompt="Choose a trained model (best.pt)",
+        extensions=(".pt",),
+        is_file=True,
+    )
     if manual and Path(manual).expanduser().is_file():
         best_model = Path(manual).expanduser().resolve()
     else:
@@ -38,12 +46,17 @@ with st.container(border=True):
     st.caption(f"Best model: `{best_model.relative_to(PROJECT_ROOT)}`")
     st.caption(f"Crops will be saved to: `{OUTPUT_DIRECTORY.relative_to(PROJECT_ROOT)}`")
 
+    # Outside the form: a form only accepts its own submit button, so Browse
+    # cannot live inside one.
+    source_directory = browse_input(
+        "Folder of images to crop",
+        state_key="crop_source_directory",
+        default=saved_source,
+        prompt="Choose the folder of images to crop",
+        help="Defaults to the folder you chose in Step 1.",
+    )
+
     with st.form("crop_form"):
-        source_directory = st.text_input(
-            "Folder of images to crop",
-            value=saved_source,
-            help="Defaults to the folder you chose in Step 1.",
-        )
         image_limit = st.number_input(
             "How many images to do (0 = all of them)",
             min_value=0,
