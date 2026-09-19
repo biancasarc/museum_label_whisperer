@@ -21,6 +21,8 @@ from PIL import Image, ImageOps
 from io import BytesIO
 from openai import OpenAI
 
+from backend.folder_picker import browse_input
+
 import base64
 import csv
 import json
@@ -284,18 +286,19 @@ st.write("Send each cut-out image off to be read, and save the text that comes b
 
 with st.container(border=True):
     st.subheader("Configuration")
-    col1, col2 = st.columns(2)
-    with col1:
-        image_dir_str = st.text_input(
-            "Folder of cut-out images",
-            value=str(DEFAULT_IMAGE_DIR),
-            help="The folder Step 5 created.",
-        )
-    with col2:
-        ocr_out_str = st.text_input(
-            "Where to save the text",
-            value=str(DEFAULT_OCR_DIR),
-        )
+    image_dir_str = browse_input(
+        "Folder of cut-out images",
+        state_key="ocr_input_dir",
+        default=str(DEFAULT_IMAGE_DIR),
+        prompt="Choose the folder of cut-out images",
+        help="The folder Step 5 created.",
+    )
+    ocr_out_str = browse_input(
+        "Where to save the text",
+        state_key="ocr_output_dir",
+        default=str(DEFAULT_OCR_DIR),
+        prompt="Choose where to save the text",
+    )
 
     col3, col4 = st.columns(2)
     with col3:
@@ -493,18 +496,21 @@ st.write(
 
 with st.container(border=True):
     st.subheader("Configuration")
-    col1, col2 = st.columns(2)
-    with col1:
-        struct_in_str = st.text_input(
-            "Spreadsheet of text from Part 1",
-            value=str(DEFAULT_OCR_DIR / "ocr_results.csv"),
-            help="The file Part 1 created.",
-        )
-    with col2:
-        struct_out_str = st.text_input(
-            "Where to save the columns",
-            value=str(DEFAULT_STRUCT_DIR),
-        )
+    struct_in_str = browse_input(
+        "Spreadsheet of text from Part 1",
+        state_key="struct_input_csv",
+        default=str(DEFAULT_OCR_DIR / "ocr_results.csv"),
+        prompt="Choose the spreadsheet Part 1 created",
+        help="The file Part 1 created.",
+        extensions=(".csv",),
+        is_file=True,
+    )
+    struct_out_str = browse_input(
+        "Where to save the columns",
+        state_key="struct_output_dir",
+        default=str(DEFAULT_STRUCT_DIR),
+        prompt="Choose where to save the columns",
+    )
 
     max_specimens = st.number_input(
         "How many items to do (0 = all of them)", min_value=0, value=0, step=1,

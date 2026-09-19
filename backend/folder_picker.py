@@ -108,15 +108,128 @@ def _linux(prompt: str) -> str | None:
     raise PickerUnavailable("install zenity or kdialog to browse for a folder")
 
 
-def pick_folder(prompt: str = "Choose a folder") -> str | None:
-    """Show a folder chooser and return the selected path, or None if cancelled."""
-    system = platform.system()
-    chooser = {"Darwin": _macos, "Windows": _windows, "Linux": _linux}.get(system)
-    if chooser is None:
-        raise PickerUnavailable(f"no folder window is available on {system}")
+def _macos_file(prompt: str, extensions: tuple[str, ...]) -> str | None:
+    of_type = ""
+    if extensions:
+        listed = ", ".join(f'"{e.lstrip(".")}"' for e in extensions)
+        of_type = f" of type {{{listed}}}"
+    return _run(
+        ["osascript", "-e", f'POSIX path of (choose file with prompt "{_clean(prompt)}"{of_type})']
+    )
 
-    chosen = chooser(prompt)
+
+def _windows_file(prompt: str, extensions: tuple[str, ...]) -> str | None:
+    if extensions:
+        patterns = ";".join(f"*{e if e.startswith('.') else '.' + e}" for e in extensions)
+        file_filter = f"Supported files ({patterns})|{patterns}|All files (*.*)|*.*"
+    else:
+        file_filter = "All files (*.*)|*.*"
+    script = (
+        "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;"
+        "Add-Type -AssemblyName System.Windows.Forms;"
+        "$dialog = New-Object System.Windows.Forms.OpenFileDialog;"
+        f'$dialog.Title = "{_clean(prompt)}";'
+        f'$dialog.Filter = "{file_filter}";'
+        "$owner = New-Object System.Windows.Forms.Form;"
+        "$owner.TopMost = $true;"
+        "if ($dialog.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK)"
+        " { Write-Output $dialog.FileName };"
+        "$owner.Dispose()"
+    )
+    for command in (
+        ["powershell", "-NoProfile", "-STA", "-Command", script],
+        ["pwsh", "-NoProfile", "-Command", script],
+    ):
+        try:
+            return _run(command)
+        except PickerUnavailable:
+            continue
+    raise PickerUnavailable("PowerShell is not available")
+
+
+def _linux_file(prompt: str, extensions: tuple[str, ...]) -> str | None:
+    if shutil.which("zenity"):
+        args = ["zenity", "--file-selection", f"--title={_clean(prompt)}"]
+        if extensions:
+            patterns = " ".join(f"*{e if e.startswith('.') else '.' + e}" for e in extensions)
+            args.append(f"--file-filter={patterns}")
+        return _run(args)
+    if shutil.which("kdialog"):
+        return _run(["kdialog", "--getopenfilename", str(Path.home())])
+    raise PickerUnavailable("install zenity or kdialog to browse for a file")
+
+
+def _choose(kind: str, prompt: str, extensions: tuple[str, ...]) -> str | None:
+    folder_choosers = {"Darwin": _macos, "Windows": _windows, "Linux": _linux}
+    file_choosers = {"Darwin": _macos_file, "Windows": _windows_file, "Linux": _linux_file}
+
+    system = platform.system()
+    chooser = (folder_choosers if kind == "folder" else file_choosers).get(system)
+    if chooser is None:
+        raise PickerUnavailable(f"no {kind} window is available on {system}")
+
+    chosen = chooser(prompt) if kind == "folder" else chooser(prompt, extensions)
     if chosen is None:
         return None
-    # macOS returns a trailing slash; everything else does not.
+    # macOS returns folders with a trailing slash; everything else does not.
     return str(Path(chosen.rstrip("/\\")).expanduser().resolve())
+
+
+def pick_folder(prompt: str = "Choose a folder") -> str | None:
+    """Show a folder chooser and return the selected path, or None if cancelled."""
+    return _choose("folder", prompt, ())
+
+
+def pick_file(prompt: str = "Choose a file", extensions: tuple[str, ...] = ()) -> str | None:
+    """Show a file chooser and return the selected path, or None if cancelled."""
+    return _choose("file", prompt, extensions)
+
+
+# ---------------------------------------------------------------------------
+# Streamlit widget
+# ---------------------------------------------------------------------------
+#
+# Kept here rather than in its own module so every page gets the same layout
+# and the same behaviour when no dialog can be shown.
+
+def browse_input(
+    label: str,
+    *,
+    state_key: str,
+    default: str = "",
+    prompt: str = "Choose a folder",
+    help: str | None = None,
+    placeholder: str | None = None,
+    extensions: tuple[str, ...] = (),
+    is_file: bool = False,
+) -> str:
+    """A path box with a Browse button beside it. Returns the path now in the box.
+
+    The button writes its result to ``state_key`` and reruns; the box reads that
+    back, so typing a path by hand keeps working exactly as before.
+    """
+    import streamlit as st
+
+    column_path, column_browse = st.columns([5, 1])
+
+    with column_path:
+        path = st.text_input(
+            label,
+            value=st.session_state.get(state_key) or default,
+            help=help,
+            placeholder=placeholder,
+        )
+
+    with column_browse:
+        st.markdown('<div style="height: 7mm;"></div>', unsafe_allow_html=True)
+        if st.button("Browse…", key=f"browse_{state_key}", width="stretch"):
+            try:
+                chosen = pick_file(prompt, extensions) if is_file else pick_folder(prompt)
+            except PickerUnavailable as error:
+                st.warning(f"Could not open a window: {error}. Type the path instead.")
+            else:
+                if chosen:
+                    st.session_state[state_key] = chosen
+                    st.rerun()
+
+    return path
