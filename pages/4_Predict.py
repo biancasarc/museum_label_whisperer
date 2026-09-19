@@ -4,6 +4,8 @@ import cv2
 import streamlit as st
 from ultralytics import YOLO
 
+from backend.folder_picker import browse_input
+
 current_proj = st.session_state.get("current_project", "No project selected")
 st.info(f"Current project: **{current_proj}**")
 
@@ -30,7 +32,13 @@ st.write("See what the trained model finds, so you can check it works before cut
 if best_model is None:
     st.warning("No trained `best.pt` model was found. Complete Step 3 first.")
     st.caption(f"Looked in: `{RUNS_DIRECTORY}`")
-    manual = st.text_input("…or paste the full path to a best.pt file", key="manual_best_pt")
+    manual = browse_input(
+        "…or choose a best.pt file yourself",
+        state_key="manual_best_pt",
+        prompt="Choose a trained model (best.pt)",
+        extensions=(".pt",),
+        is_file=True,
+    )
     if manual and Path(manual).expanduser().is_file():
         best_model = Path(manual).expanduser().resolve()
     else:
@@ -39,17 +47,23 @@ if best_model is None:
 with st.container(border=True):
     st.caption(f"Best model: `{best_model.relative_to(PROJECT_ROOT)}`")
 
-    with st.form("prediction_form"):
-        source_directory = st.text_input(
-            "Folder of images to search",
-            value=saved_source,
-            help="Defaults to the folder you chose in Step 1. You can change it here.",
-        )
-        start_prediction = st.form_submit_button(
-            "Find objects",
-            type="primary",
-            icon=":material/play_arrow:",
-        )
+    # Outside the form: a form only accepts its own submit button, so Browse
+    # cannot live inside one.
+    source_directory = browse_input(
+        "Folder of images to search",
+        state_key="predict_source_directory",
+        default=saved_source,
+        prompt="Choose the folder of images to search",
+        help="Defaults to the folder you chose in Step 1. You can change it here.",
+    )
+
+    # No form left to submit: the only field moved out so Browse could sit
+    # beside it, so a plain button is all that is needed.
+    start_prediction = st.button(
+        "Find objects",
+        type="primary",
+        icon=":material/play_arrow:",
+    )
 
 if start_prediction:
     source_path = Path(source_directory).expanduser()
