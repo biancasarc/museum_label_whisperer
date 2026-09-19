@@ -40,7 +40,15 @@ def _clean(prompt: str) -> str:
 def _run(command: list[str]) -> str | None:
     try:
         result = subprocess.run(
-            command, capture_output=True, text=True, timeout=DIALOG_TIMEOUT_SECONDS
+            command,
+            capture_output=True,
+            text=True,
+            # Folder names routinely contain non-ASCII characters (å, ä, ö).
+            # Windows consoles do not default to UTF-8, so say so explicitly
+            # rather than letting the locale mangle the path.
+            encoding="utf-8",
+            errors="replace",
+            timeout=DIALOG_TIMEOUT_SECONDS,
         )
     except FileNotFoundError as error:
         raise PickerUnavailable(f"{command[0]} is not installed") from error
@@ -61,14 +69,33 @@ def _macos(prompt: str) -> str | None:
 
 def _windows(prompt: str) -> str | None:
     script = (
+        # Force UTF-8 out, so accented folder names survive the trip back.
+        "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;"
         "Add-Type -AssemblyName System.Windows.Forms;"
         "$dialog = New-Object System.Windows.Forms.FolderBrowserDialog;"
         f'$dialog.Description = "{_clean(prompt)}";'
-        "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK)"
-        " { Write-Output $dialog.SelectedPath }"
+        "$dialog.ShowNewFolderButton = $false;"
+        # Without an owner window the dialog can open *behind* the browser and
+        # look like the app has frozen. A throwaway top-most form fixes that.
+        "$owner = New-Object System.Windows.Forms.Form;"
+        "$owner.TopMost = $true;"
+        "if ($dialog.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK)"
+        " { Write-Output $dialog.SelectedPath };"
+        "$owner.Dispose()"
     )
-    # -STA is required: FolderBrowserDialog will not open on an MTA thread.
-    return _run(["powershell", "-NoProfile", "-STA", "-Command", script])
+    # Windows PowerShell 5.1 ships on every Windows machine and is already STA;
+    # PowerShell 7 (pwsh) dropped -STA, so it is tried without the flag.
+    attempts = (
+        ["powershell", "-NoProfile", "-STA", "-Command", script],
+        ["pwsh", "-NoProfile", "-Command", script],
+    )
+    last_error: PickerUnavailable | None = None
+    for command in attempts:
+        try:
+            return _run(command)
+        except PickerUnavailable as error:
+            last_error = error
+    raise last_error or PickerUnavailable("PowerShell is not available")
 
 
 def _linux(prompt: str) -> str | None:
