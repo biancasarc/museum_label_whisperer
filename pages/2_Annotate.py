@@ -154,9 +154,9 @@ with st.expander("How to annotate", expanded=done == 0):
 - **Move / resize** a box: click it to select, then drag it or its corner handles.
 - **Delete** a box: switch **Mode** (right of the image) from *Transform* to *Del*, click the box,
   then switch back to *Transform* to keep drawing.
-- When the image is done, click **Complete** under the image (or press **Space**).
+- When the image is done, click **Complete**.
   This saves the boxes — the status line below the image turns green.
-- Then click **Next ▶**. Photos with no labels: just click **Complete** without drawing.
+- When you're done annotating, click "Build training dataset" underneath.
 """
     )
 
