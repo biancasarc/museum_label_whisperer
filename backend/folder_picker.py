@@ -199,6 +199,7 @@ def browse_input(
     default: str = "",
     prompt: str = "Choose a folder",
     help: str | None = None,
+    placeholder: str | None = None,
     extensions: tuple[str, ...] = (),
     is_file: bool = False,
 ) -> str:
@@ -212,7 +213,12 @@ def browse_input(
     column_path, column_browse = st.columns([5, 1])
 
     with column_path:
-        path = st.text_input(label, value=st.session_state.get(state_key) or default, help=help)
+        path = st.text_input(
+            label,
+            value=st.session_state.get(state_key) or default,
+            help=help,
+            placeholder=placeholder,
+        )
 
     with column_browse:
         st.markdown('<div style="height: 7mm;"></div>', unsafe_allow_html=True)
