@@ -54,7 +54,7 @@ projects = [p.name for p in DATA_FOLDER.iterdir() if p.is_dir()]
 col_input, col_btn, col_or, col_select = st.columns([3, 1, 1, 4], vertical_alignment="bottom")
 
 with col_input:
-    new_proj = st.text_input("Create a new project:")
+    new_proj = st.text_input("Create a new project. Insert project name:")
     if " " in new_proj:
         st.warning("Name cannot have spaces. Use underscores (_) instead.")
         
@@ -70,23 +70,24 @@ with col_btn:
             st.session_state["_created_msg"] = new_proj
             st.rerun()
 
-with col_or:
-    st.markdown("**OR**")
+if projects != []:
+    with col_or:
+        st.markdown("**OR**")
 
-with col_select:
-    if projects:
-        active = st.session_state.get("current_project")
-        proj_index = projects.index(active) if active in projects else 0
-        selected = st.selectbox("Choose an existing project:", options=projects, index=None)
-        if selected != active and selected !=None:
-            st.session_state["current_project"] = selected
-            st.rerun()
-    else:
-        st.caption("No projects yet — create one above.")
+    with col_select:
+        if projects:
+            active = st.session_state.get("current_project")
+            proj_index = projects.index(active) if active in projects else 0
+            selected = st.selectbox("Choose an existing project:", options=projects, index=None)
+            if selected != active and selected !=None:
+                st.session_state["current_project"] = selected
+                st.rerun()
+        else:
+            st.caption("No projects yet — create one above.")
 
-# Show "just created" confirmation once, then clear it
-if msg := st.session_state.pop("_created_msg", None):
-    st.success(f"Project **{msg}** has been created.")
+    # Show "just created" confirmation once, then clear it
+    if msg := st.session_state.pop("_created_msg", None):
+        st.success(f"Project **{msg}** has been created. Continue with Upload.")
 
 # ---------------------------------------------------------------------------
 # Project dashboard
