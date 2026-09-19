@@ -87,11 +87,11 @@ with col1:
 #                 disabled=["Specimen.image"]
 #             )
 #         else:
-#             st.info("Select at least one column to review.")
+#             st.info("Choose at least one column to check.")
 #             edited_row = None
 
 #     else:
-#         st.warning("No matching row found in the CSV.")
+#         st.warning("No saved text found for this image.")
 #         edited_row = None
 
 
@@ -176,11 +176,11 @@ with col2:
                     edited_row.loc[index, column] = edited_data[index][column]
 
         else:
-            st.info("Select at least one column to review.")
+            st.info("Choose at least one column to check.")
             edited_row = None
 
     else:
-        st.warning("No matching row found in the CSV.")
+        st.warning("No saved text found for this image.")
         edited_row = None
 
 
