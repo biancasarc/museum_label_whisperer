@@ -3,6 +3,7 @@ import shutil
 import pandas as pd
 from pathlib import Path
 
+from backend.folder_picker import PickerUnavailable, pick_folder
 from backend.images import load_rgb, make_display_image
 
 current_proj = st.session_state.get("current_project", "No project selected")
@@ -27,18 +28,53 @@ if not CSV_FILE.exists():
 df = pd.read_csv(CSV_FILE, dtype=str)
 raw_df = pd.read_csv(RAW_CSV, dtype=str)
 
-saved_source = st.session_state.get("prediction_source_directory")
+# The Browse button writes here; Step 1 fills prediction_source_directory. The
+# box is always shown so the folder can be changed, not only when it is unset.
+CHOSEN_FOLDER = "quality_check_image_dir"
 
-if saved_source == None:
-    saved_source = st.text_input("Folder containing the original images")
+default_source = (
+    st.session_state.get(CHOSEN_FOLDER)
+    or st.session_state.get("prediction_source_directory")
+    or ""
+)
+
+col_path, col_browse = st.columns([5, 1])
+
+with col_path:
+    saved_source = st.text_input(
+        "Folder containing the original images",
+        value=default_source,
+        placeholder="/full/path/to/your/images",
+    )
+
+with col_browse:
+    st.markdown('<div style="height: 7mm;"></div>', unsafe_allow_html=True)
+    if st.button("Browse…", width="stretch"):
+        try:
+            chosen = pick_folder("Choose the folder with the original images")
+        except PickerUnavailable as error:
+            st.warning(f"Could not open a folder window: {error}. Type the path instead.")
+        else:
+            if chosen:
+                st.session_state[CHOSEN_FOLDER] = chosen
+                st.rerun()
 
 if not saved_source:
-    st.warning("No image folder found. Complete Step 1 first.")
+    st.warning("Choose the folder holding your original images, or complete Step 1 first.")
+    st.stop()
+
+source_path = Path(saved_source).expanduser()
+if not source_path.is_dir():
+    st.error(f"That folder does not exist: {source_path}")
     st.stop()
 
 image_files = sorted([
-    f for f in Path(saved_source).iterdir()
+    f for f in source_path.iterdir()
     if f.suffix.lower() in [".jpg", ".jpeg", ".png", ".tif", ".tiff"]]) # a list with all the images
+
+if not image_files:
+    st.warning(f"No images found in `{source_path}`.")
+    st.stop()
 
 
 if "image_index" not in st.session_state:
