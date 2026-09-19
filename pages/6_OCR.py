@@ -247,7 +247,7 @@ def call_structuring_prompt(
 st.title("Step 6 — Read the text")
 st.markdown(
     "**Part 1** — Read the text in each cut-out image (OCR).  \n"
-    "**Part 2** — Sort that text into columns, using five prompts you can edit.  \n"
+    "**Part 2** — Sort that text into columns of your choice, using five prompts you can edit.  \n"
     "Run them in order, or run either one again on its own."
 )
 
@@ -344,7 +344,7 @@ run_ocr = st.button(
 
 if run_ocr:
     if not api_key:
-        st.error("Please enter your OpenAI API key in the shared configuration above.")
+        st.error("Please enter your OpenAI API key in the settings above.")
         st.stop()
 
     image_dir = Path(image_dir_str).expanduser()
@@ -486,7 +486,9 @@ st.divider()
 st.header("Part 2 — Sort into columns")
 st.write(
     "Takes the text from Part 1, groups the cut-outs back together by the image they "
-    "came from, then uses five prompts to sort that text into columns."
+    "came from, then uses five prompts to sort that text into columns of your choice — "
+    "these can follow an existing standard (GBIF Darwin Core, for example), or whatever "
+    "suits your own records."
 )
 
 with st.container(border=True):
@@ -622,7 +624,7 @@ run_struct = st.button(
 
 if run_struct:
     if not api_key:
-        st.error("Please enter your OpenAI API key in the shared configuration above.")
+        st.error("Please enter your OpenAI API key in the settings above.")
         st.stop()
 
     struct_in = Path(struct_in_str).expanduser()
