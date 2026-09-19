@@ -147,10 +147,7 @@ Draw a rectangle around **every label** in each photo, directly in the app.
 - **Move / resize** a box: click it to select, then drag it or its corner handles.
 - **Delete** a box: switch **Mode** (right of the image) from *Transform* to *Del*,
   click the box, then switch back to *Transform*.
-- Click **Complete** under the image (or press **Space**) to save. The status line
-  turns green.
-- Click **Next ▶** to move on. For a photo with no labels, click **Complete**
-  without drawing anything, or use **No labels here**.
+- Click **Complete** to save the annotations for each image.
 
 Your boxes are saved to `data/annotations.json` as you go, so you can close the
 app and continue later.
@@ -207,9 +204,6 @@ time. Use ↺ next to any field to restore the original OCR value.
 This step reads `results/data.csv` (the OCR output) and writes your corrections
 to `results/modified_data.csv`, leaving the original untouched.
 
-> **Note:** the OCR itself is not yet part of this app. Step 6 only opens once
-> `results/data.csv` exists.
-
 ---
 
 # Important notes
@@ -220,26 +214,8 @@ to `results/modified_data.csv`, leaving the original untouched.
   moving on before a process has finished, may cause errors. Wait for each step
   to report success before continuing.
 
-- **Starting a new run.** Intermediate files are kept in `data/` and `runs/`.
-  Before starting a fresh run on a different set of photographs, delete:
-
-  ```text
-  data/original          # the imported images
-  data/annotations.json  # your boxes
-  data/yolo_dataset      # the built training dataset
-  runs/                  # trained models and training logs
-  ```
-
-  Keep `data/cropping_result` if you still need the crops from the previous run —
-  new crops are added alongside the old ones, and identical filenames are
-  overwritten.
-
 - **Rotated photos.** Photographs carrying an EXIF rotation tag are handled
   consistently at every step, so boxes always line up with what you see on
   screen. Nothing is required from you.
 
-- **Where the results are.** The cropped labels are here:
-
-  ```text
-  museum_label_whisperer/data/cropping_result
-  ```
+- The results of every step are in the data directory of each project
