@@ -5,6 +5,8 @@ from pathlib import Path
 
 import streamlit as st
 
+from backend.folder_picker import PickerUnavailable, pick_folder
+
 current_proj = st.session_state.get("current_project", "No project selected")
 st.info(f"Current project: **{current_proj}**")
 
@@ -30,10 +32,30 @@ with col1:
 with col2:
     st.image("learning_curve.png")
 
-image_dir = st.text_input(
-    "Folder containing your images (your originals are never changed)",
-    placeholder="/full/path/to/your/images"
-)
+# The Browse button writes the chosen path here; the text box reads it back, so
+# typing a path by hand still works exactly as before.
+CHOSEN_FOLDER = "upload_image_dir"
+
+col_path, col_browse = st.columns([5, 1])
+
+with col_path:
+    image_dir = st.text_input(
+        "Folder containing your images (your originals are never changed)",
+        value=st.session_state.get(CHOSEN_FOLDER, ""),
+        placeholder="/full/path/to/your/images",
+    )
+
+with col_browse:
+    st.markdown('<div style="height: 7mm;"></div>', unsafe_allow_html=True)
+    if st.button("Browse…", width="stretch"):
+        try:
+            chosen = pick_folder("Choose the folder with your images")
+        except PickerUnavailable as error:
+            st.warning(f"Could not open a folder window: {error}. Type the path instead.")
+        else:
+            if chosen:
+                st.session_state[CHOSEN_FOLDER] = chosen
+                st.rerun()
 
 
 
