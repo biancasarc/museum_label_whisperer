@@ -66,6 +66,15 @@ if not CSV_FILE.exists():
 df = pd.read_csv(CSV_FILE, dtype=str)
 raw_df = pd.read_csv(RAW_CSV, dtype=str)
 
+# Older corrected_metadata.csv files (or a fresh copy of the OCR output) won't
+# have this column yet. Everything starts unchecked until reviewed below.
+if "Manually checked" not in df.columns:
+    df["Manually checked"] = "no"
+    df.to_csv(CSV_FILE, index=False)
+
+# Columns a reviewer can pick to check, as opposed to bookkeeping columns.
+EDITABLE_COLUMNS = [c for c in df.columns if c not in ("Specimen.image", "Manually checked")]
+
 # Falls back to the folder Step 1 recorded, and is always shown so it can be
 # corrected rather than only appearing when nothing is set.
 saved_source = browse_input(
@@ -156,8 +165,14 @@ if jump != st.session_state.image_index:
 #matching the current image with the row
 matching_rows = df[df["Specimen.image"].str.rsplit(".", n=1).str[0] == current_image.stem]
 
+# Moving on is the confirmation — there's no separate "I checked this" box.
+# Step 8's results report only counts a column as corrected or not on rows
+# marked checked here, so a quick look with nothing to fix still counts,
+# as long as you move past the image with one of the buttons below.
+if len(matching_rows) > 0:
+    st.caption("Moving to another image confirms you've checked the text shown here.")
 
-col3, col4 = st.columns(2) 
+col3, col4 = st.columns(2)
 col1, col2 = st.columns(2)
 
 with col1:
@@ -209,7 +224,7 @@ with col2:
     if len(matching_rows) > 0:
 
         selected_column = st.multiselect(
-            "Which columns do you want to check?", df.columns[1:])
+            "Which columns do you want to check?", EDITABLE_COLUMNS)
 
         if selected_column:
 
@@ -300,45 +315,35 @@ with col2:
 # Save changes + go to next
 # -----------------------------
 
+def save_and_confirm_checked(step: int) -> None:
+    df.loc[matching_rows.index, "Manually checked"] = "yes"
+    if edited_row is not None:
+        df.loc[matching_rows.index, selected_column] = edited_row[selected_column].values
+    df.to_csv(CSV_FILE, index=False)
+    st.session_state.image_index += step
+
+
 with col3:
     if st.session_state.image_index > 0:
         if st.button("◀ Previous image", use_container_width=True):
-            if edited_row is not None:
-
-                # Find the original row
-                row_index = matching_rows.index
-
-                # Save the edited value for the selected column
-                df.loc[row_index, selected_column] = (
-                    edited_row[selected_column].values
-                )
-
-                # Save CSV
-                df.to_csv(CSV_FILE, index=False)
-
+            if len(matching_rows) > 0:
+                save_and_confirm_checked(-1)
+            else:
                 st.session_state.image_index -= 1
-                st.rerun()
+            st.rerun()
 
 with col4:
     if st.session_state.image_index < len(image_files) - 1:
         if st.button("Next image ▶", use_container_width=True):
-
-            if edited_row is not None:
-
-                # Find the original row
-                row_index = matching_rows.index
-
-                # Save the edited value for the selected column
-                df.loc[row_index, selected_column] = (
-                    edited_row[selected_column].values
-                )
-
-                # Save CSV
-                df.to_csv(CSV_FILE, index=False)
-
+            if len(matching_rows) > 0:
+                save_and_confirm_checked(1)
+            else:
                 st.session_state.image_index += 1
-                st.rerun()
+            st.rerun()
     else:
+        if len(matching_rows) > 0 and st.button("Mark as checked ✓", use_container_width=True):
+            save_and_confirm_checked(0)
+            st.rerun()
         st.success("That was the last image.")
 
 
