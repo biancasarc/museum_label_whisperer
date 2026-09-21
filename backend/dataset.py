@@ -2,7 +2,7 @@
 
 This module replaces the CVAT-based ``backend/cvat_manager.py``.  It holds:
 
-* the annotation store used by ``pages/2_Annotate.py`` (a small JSON file with
+* the annotation store used by ``pages/2_02._Annotate_images.py`` (a small JSON file with
   one entry per image, boxes kept in *original image pixel* coordinates),
 * ``build_yolo_dataset`` which turns those annotations into the YOLO folder
   layout that ``processing_yolo_dir`` expects, and
