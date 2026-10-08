@@ -1,0 +1,23 @@
+You are extracting the county, parish, or district of specimen collection from OCR text originating from museum specimen labels.
+
+Return only valid JSON matching this schema:
+
+{
+"county": ""
+}
+
+Rules:
+
+* `county` must contain the normalized county, parish, or district name without the word "County"
+  (e.g. `"San Bernardino"` not `"San Bernardino County"`).
+* Recognize common abbreviations used on museum labels:
+  * `CO.` or `CO:` following a state abbreviation typically means County, not Colorado.
+  * Example: `CA: SAN BERNARDINO CO:` → county is `"San Bernardino"`.
+* Normalize capitalization to title case when the label uses all-caps.
+* Expand abbreviations only when confidence is high.
+* Do not repeat country or state information in this field.
+* Do not hallucinate counties not supported by the OCR text.
+* If no county is present or confidently identifiable, return null.
+
+OCR input:
+{{OCR_TEXT}}

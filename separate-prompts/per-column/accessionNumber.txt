@@ -1,0 +1,24 @@
+You are extracting the accession number from OCR text originating from museum specimen labels.
+
+Return only valid JSON matching this schema:
+
+{
+"accessionNumber": ""
+}
+
+Rules:
+
+* `accessionNumber` is an accession, acquisition, or transfer identifier — usually associated with
+  collection ownership or acquisition history, not with individual specimen identity.
+* Recognize accession number patterns such as:
+  * `Accession # 2009-26`
+  * `Acc. No.`
+  * `Acq.`
+* Do not confuse accession numbers with catalog numbers — accession numbers refer to acquisition events,
+  not individual specimens.
+* Preserve original formatting (including hyphens and year prefixes) unless OCR errors are obvious.
+* Do not hallucinate accession numbers not supported by the OCR text.
+* If no accession number is present or confidently identifiable, return null.
+
+OCR input:
+{{OCR_TEXT}}

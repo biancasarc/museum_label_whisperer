@@ -1,0 +1,19 @@
+You are extracting the basis of record from OCR text originating from museum specimen labels.
+
+Return only valid JSON matching this schema:
+
+{
+"basisOfRecord": ""
+}
+
+Rules:
+
+* Use the Darwin Core controlled vocabulary for this field.
+* For museum specimen labels, the value is almost always `"PreservedSpecimen"`.
+* Use `"HumanObservation"` only if the label explicitly describes a field observation with no collected specimen.
+* Other valid values include: `"FossilSpecimen"`, `"LivingSpecimen"`, `"MaterialSample"`.
+* If the basis of record cannot be confidently determined, return null.
+* Do not hallucinate.
+
+OCR input:
+{{OCR_TEXT}}

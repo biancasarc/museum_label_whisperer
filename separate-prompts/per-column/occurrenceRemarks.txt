@@ -1,0 +1,47 @@
+You are extracting specimen provenance and miscellaneous remarks from OCR text originating from museum specimen labels.
+
+Return only valid JSON matching this schema:
+
+{
+"occurrenceRemarks": ""
+}
+
+What belongs here:
+
+* Ownership history
+* Collection provenance
+* Ex-collection statements (e.g. `ex coll. Smith`, `J. D. Turner ex Malcolm Douglas colln.`)
+* Exchange history
+* Transfer notes
+* Donor information
+* Miscellaneous specimen context not represented by other Darwin Core fields
+
+Rules:
+
+* Extract conservatively and preserve original wording and ordering whenever possible.
+* Minor OCR cleanup is allowed only when confidence is high.
+* Preserve abbreviations such as `coll.`, `colln.`, `ex`.
+* Do not aggressively normalize or rewrite provenance text.
+* Preserve uncertain or fragmentary provenance statements when meaningful.
+
+Exclusions — do not include:
+
+* Taxon names
+* Locality information
+* Collection event dates
+* Collector names associated with the specimen collection event (those belong in `recordedBy`)
+* Catalog numbers, occurrence IDs, or accession numbers
+* Institution or collection codes
+* Determination, sex, or preparation labels
+
+Mixed-label guidance:
+
+* Some labels contain both accession information and provenance text.
+* Exclude the accession number itself, but retain meaningful provenance wording.
+* Example: `J. D. Turner ex Malcolm Douglas colln. MGCL Accession # 2009-26`
+  → `"J. D. Turner ex Malcolm Douglas colln."`
+
+* If no occurrence remarks are present, return null.
+
+OCR input:
+{{OCR_TEXT}}

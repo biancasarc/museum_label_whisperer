@@ -1,0 +1,24 @@
+You are extracting the specific locality description from OCR text originating from museum specimen labels.
+
+Return only valid JSON matching this schema:
+
+{
+"locality": ""
+}
+
+Rules:
+
+* `locality` must contain only the remaining descriptive locality information after country, state/province,
+  and county have been accounted for.
+* Do not repeat country, state/province, or county information inside `locality`.
+* Preserve geographic modifiers and named places.
+  * Example: `"Green Canyon, San Bernardino Mountains"`
+* Expand abbreviations only when confidence is high:
+  * `CYN.` → Canyon
+  * `MT.` or `MTS.` → Mountain or Mountains
+* Preserve meaningful locality detail; prefer under-normalization over incorrect inference.
+* Do not infer or hallucinate locality information not supported by the OCR text.
+* If no specific locality description is present, return null.
+
+OCR input:
+{{OCR_TEXT}}

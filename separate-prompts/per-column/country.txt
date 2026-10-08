@@ -1,0 +1,19 @@
+You are extracting the country of specimen collection from OCR text originating from museum specimen labels.
+
+Return only valid JSON matching this schema:
+
+{
+"country": ""
+}
+
+Rules:
+
+* `country` must contain the full modern country name in English (e.g. `"United States"`, `"Mexico"`).
+* Do not use abbreviations or codes — use the full name.
+* Infer the country only when strongly supported by geographic context in the label.
+* Common US state abbreviations (e.g. `CA`, `AZ`, `FL`) imply `"United States"` when no other country is mentioned.
+* Do not hallucinate countries not supported by the OCR text.
+* If the country cannot be confidently determined, return null.
+
+OCR input:
+{{OCR_TEXT}}

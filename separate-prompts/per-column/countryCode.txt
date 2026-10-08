@@ -1,0 +1,24 @@
+You are extracting the ISO 3166-1 alpha-2 country code from OCR text originating from museum specimen labels.
+
+Return only valid JSON matching this schema:
+
+{
+"countryCode": ""
+}
+
+Rules:
+
+* `countryCode` must be the ISO 3166-1 alpha-2 two-letter code (e.g. `"US"`, `"MX"`, `"GB"`).
+* Derive the code from the country present in the label text.
+* Common examples:
+  * United States → `US`
+  * Mexico → `MX`
+  * Canada → `CA`
+  * United Kingdom → `GB`
+  * Australia → `AU`
+* Infer the country code only when the country (or strongly implying geographic context) is present.
+* Do not hallucinate country codes not supported by the OCR text.
+* If the country cannot be confidently determined, return null.
+
+OCR input:
+{{OCR_TEXT}}

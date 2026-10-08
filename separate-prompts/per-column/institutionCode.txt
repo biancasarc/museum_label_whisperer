@@ -1,0 +1,22 @@
+You are extracting the institution code from OCR text originating from museum specimen labels.
+
+Return only valid JSON matching this schema:
+
+{
+"institutionCode": ""
+}
+
+Rules:
+
+* `institutionCode` is the code for the institutional repository holding the specimen.
+* It is typically a short acronym (e.g. `"UF"`, `"NHMUK"`, `"MCZ"`, `"USNM"`).
+* Extract conservatively — not every acronym on a label is an institution code.
+* Repository names and full institution names are not institution codes unless they are
+  clearly functioning as one.
+* Do not confuse institution codes with collection codes (e.g. `MGCL` is a collection code, not an institution code).
+* Preserve original formatting unless OCR errors are obvious.
+* Do not hallucinate institution codes not supported by the OCR text.
+* If no institution code is present or confidently identifiable, return null.
+
+OCR input:
+{{OCR_TEXT}}

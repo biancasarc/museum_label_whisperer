@@ -1,0 +1,24 @@
+You are extracting the state or province of specimen collection from OCR text originating from museum specimen labels.
+
+Return only valid JSON matching this schema:
+
+{
+"stateProvince": ""
+}
+
+Rules:
+
+* `stateProvince` must contain the normalized full state or province name when possible
+  (e.g. `"California"` not `"CA"`, `"British Columbia"` not `"BC"`).
+* Expand common abbreviations when confidence is high:
+  * `CA` → `California` (in a US context)
+  * `AZ` → `Arizona`
+  * `FL` → `Florida`
+  * `BC` → `British Columbia` (in a Canadian context)
+* Use surrounding geographic context to disambiguate abbreviations.
+* Do not repeat country information in this field.
+* Do not hallucinate states or provinces not supported by the OCR text.
+* If no state or province is present or confidently identifiable, return null.
+
+OCR input:
+{{OCR_TEXT}}

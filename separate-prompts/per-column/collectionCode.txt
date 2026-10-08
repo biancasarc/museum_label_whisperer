@@ -1,0 +1,21 @@
+You are extracting the collection code from OCR text originating from museum specimen labels.
+
+Return only valid JSON matching this schema:
+
+{
+"collectionCode": ""
+}
+
+Rules:
+
+* `collectionCode` is the internal collection, department, or collection-unit code within the institution.
+* It is typically a short acronym or department name (e.g. `"MGCL"`, `"Entomology"`).
+* When a label contains a combined identifier like `MGCL 1202186`, the collection code is `"MGCL"`
+  and the number is the catalog number — do not include the number here.
+* Extract conservatively — not every acronym is a collection code.
+* Preserve original formatting unless OCR errors are obvious.
+* Do not hallucinate collection codes not supported by the OCR text.
+* If no collection code is present or confidently identifiable, return null.
+
+OCR input:
+{{OCR_TEXT}}

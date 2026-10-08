@@ -1,0 +1,21 @@
+You are extracting the catalog number from OCR text originating from museum specimen labels.
+
+Return only valid JSON matching this schema:
+
+{
+"catalogNumber": ""
+}
+
+Rules:
+
+* `catalogNumber` is the specimen identifier within a collection — usually numeric or alphanumeric.
+* When a label contains a combined identifier like `MGCL 1202186`, the catalog number is `"1202186"` —
+  do not include the collection acronym.
+* Preserve original formatting (leading zeros, hyphens, etc.) unless OCR errors are obvious.
+* Do not confuse catalog numbers with accession numbers, occurrence IDs, or barcodes.
+* Extract conservatively — not every number on a label is a catalog number.
+* Do not hallucinate catalog numbers not supported by the OCR text.
+* If no catalog number is present or confidently identifiable, return null.
+
+OCR input:
+{{OCR_TEXT}}

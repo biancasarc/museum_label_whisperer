@@ -1,0 +1,26 @@
+You are extracting the specimen collector name(s) from OCR text originating from museum specimen labels.
+
+Return only valid JSON matching this schema:
+
+{
+"recordedBy": ""
+}
+
+Rules:
+
+* `recordedBy` should contain the name(s) of the person(s) who collected the specimen.
+* Recognize common collector abbreviations such as:
+  * `LEG.`
+  * `leg.`
+  * `coll.`
+  * `collected by`
+* Preserve initials and formatting unless OCR errors are obvious.
+* Multiple collectors should be separated using `" | "`.
+* Do not infer collectors from accession or ownership labels unless they clearly indicate specimen collection.
+* Do not confuse provenance/ownership statements (e.g. `ex coll. Smith`) with the collector —
+  those belong in `occurrenceRemarks`, not here.
+* If no collector is present or confidently identifiable, return null.
+* Do not hallucinate names.
+
+OCR input:
+{{OCR_TEXT}}

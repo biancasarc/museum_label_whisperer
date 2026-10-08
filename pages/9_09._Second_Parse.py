@@ -53,10 +53,13 @@ RAW_OCR_CSV      = PROJECT_ROOT / "data" / "06_structured_output" / "structured_
 OCR_RESULTS_CSV  = PROJECT_ROOT / "data" / "05_ocr_results" / "ocr_results.csv"
 CROPS_DIR        = PROJECT_ROOT / "data" / "04_cropping_result"
 
-SECOND_PARSE_DIR = PROJECT_ROOT / "data" / "08_second_parse"
-RAW_RESPONSE_DIR = SECOND_PARSE_DIR / "raw_responses"
-OUTPUT_CSV       = SECOND_PARSE_DIR / "second_parse_results.csv"
-PROMPTS_DIR      = SECOND_PARSE_DIR / "prompts"
+SECOND_PARSE_DIR  = PROJECT_ROOT / "data" / "08_second_parse"
+RAW_RESPONSE_DIR  = SECOND_PARSE_DIR / "raw_responses"
+OUTPUT_CSV        = SECOND_PARSE_DIR / "second_parse_results.csv"
+PROMPTS_DIR       = SECOND_PARSE_DIR / "prompts"
+
+# Per-column prompt files created in the separate-prompts/per-column folder
+COLUMN_PROMPT_DIR = Path(__file__).resolve().parents[1] / "separate-prompts" / "per-column"
 
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
 
@@ -128,43 +131,81 @@ def extract_json(text: str) -> dict:
     return obj
 
 
-def default_prompt_for(column: str) -> str:
+def extract_rules(column: str) -> str:
+    """
+    Pull just the rules section out of a per-column prompt file.
+    Strips the intro sentence and JSON schema, keeps everything up to
+    (but not including) the 'OCR input:' line.
+    Falls back to a one-line generic rule if no file exists.
+    """
+    path = COLUMN_PROMPT_DIR / f"{column}.txt"
+    if not path.exists():
+        return f"* Extract the {column} field. Return null if absent or unreadable."
+    text = path.read_text(encoding="utf-8")
+    # Drop 'OCR input:' and everything after it
+    text = text.split("OCR input:")[0].strip()
+    # Drop everything up to and including the closing } of the JSON schema block
+    if "}" in text:
+        text = text[text.rfind("}") + 1:].strip()
+    return text
+
+
+def default_prompt_for(columns: list[str]) -> str:
+    """
+    Assemble a combined extraction prompt from the individual per-column
+    prompt files. Each column's rules section is included under its own
+    header so the model knows exactly what to look for.
+    """
+    fields_json = "\n".join(f'  "{c}": ""' for c in columns)
+    sections = "\n\n".join(
+        f"=== {c} ===\n{extract_rules(c)}" for c in columns
+    )
     return (
-        f"You are an expert in natural history museum specimens.\n\n"
-        f"Look carefully at the label image(s) provided and extract the value "
-        f"for the field **{column}**.\n\n"
-        f"Return ONLY a valid JSON object in this exact format:\n"
-        f'{{\n  "{column}": "<extracted value, or null if not present or unreadable>"\n}}\n\n'
-        f"Do not add any explanation or extra text — only the JSON object."
+        "You are an expert in natural history museum specimens.\n\n"
+        "Look carefully at the label image(s) provided and extract the following fields.\n\n"
+        "Return ONLY a valid JSON object with exactly these keys "
+        "(use null if a field is not present or unreadable):\n"
+        f"{{\n{fields_json}\n}}\n\n"
+        f"{sections}"
     )
 
 
-def load_prompt(column: str) -> str:
-    path = PROMPTS_DIR / f"{column}.txt"
-    return path.read_text(encoding="utf-8") if path.exists() else default_prompt_for(column)
+def _prompt_key(columns: list[str]) -> str:
+    """Stable filename key for a given set of columns."""
+    return "+".join(sorted(columns))
 
 
-def save_prompt(column: str, text: str) -> None:
+def load_prompt(columns: list[str]) -> str:
+    path = PROMPTS_DIR / f"{_prompt_key(columns)}.txt"
+    return path.read_text(encoding="utf-8") if path.exists() else default_prompt_for(columns)
+
+
+def save_prompt(columns: list[str], text: str) -> None:
     PROMPTS_DIR.mkdir(parents=True, exist_ok=True)
-    (PROMPTS_DIR / f"{column}.txt").write_text(text, encoding="utf-8")
+    (PROMPTS_DIR / f"{_prompt_key(columns)}.txt").write_text(text, encoding="utf-8")
 
 
-def labels_for_column(
+def labels_for_columns(
     specimen_name: str,
-    column: str,
+    columns: list[str],
     ocr_df: pd.DataFrame,
 ) -> list[Path]:
     """
-    Return the crop image paths most relevant for re-parsing `column`.
+    Return the crop image paths most relevant for re-parsing `columns`.
 
     Strategy:
-      1. Find all rows in ocr_results for this specimen.
-      2. Keep rows whose Segments JSON contains at least one segment of
-         the target type(s) for this column.
+      1. Collect the union of target segment types across all selected columns.
+      2. Keep crop labels whose Segments JSON contains at least one of those types.
       3. If none match (or no mapping exists), fall back to ALL crops.
     """
     specimen_rows = ocr_df[ocr_df["Specimen.image"] == specimen_name]
-    target_types  = COLUMN_TO_SEGMENT_TYPES.get(column)  # None = no mapping
+
+    # Union of segment types across all selected columns
+    target_types: set[str] = set()
+    for col in columns:
+        types = COLUMN_TO_SEGMENT_TYPES.get(col)
+        if types:
+            target_types.update(types)
 
     matched_image_names: list[str] = []
 
@@ -172,15 +213,15 @@ def labels_for_column(
         image_name   = row["Image.name"]
         segments_raw = row.get("Segments", "")
 
-        # No type mapping for this column — include all labels
-        if target_types is None:
+        # No type mapping for any selected column — include all labels
+        if not target_types:
             matched_image_names.append(image_name)
             continue
 
         try:
             segments       = json.loads(segments_raw)
             types_in_label = {s.get("segment_type", "") for s in segments}
-            if types_in_label & set(target_types):
+            if types_in_label & target_types:
                 matched_image_names.append(image_name)
         except (json.JSONDecodeError, TypeError):
             # Malformed segment — include to be safe
@@ -308,35 +349,33 @@ if selected_columns:
 
     st.dataframe(pd.DataFrame(preview_rows), hide_index=True, use_container_width=True)
 
-    # Per-column prompt editors
+    # Single prompt editor covering all selected columns
     st.divider()
-    st.subheader("Reading instructions (one prompt per column)")
-    st.caption("Edit and save the prompt each column uses.")
+    st.subheader("Reading instructions")
+    st.caption("One prompt is sent per specimen, extracting all selected columns in a single call.")
 
-    prompts: dict[str, str] = {}
-    for col in selected_columns:
-        with st.expander(f"Prompt — {col}", expanded=False):
-            prompt_text = st.text_area(
-                f"Instructions for {col}",
-                value=load_prompt(col),
-                height=200,
-                key=f"sp_prompt_{col}",
-                label_visibility="collapsed",
-            )
-            prompts[col] = prompt_text
-            c1, c2, _ = st.columns([1.2, 1.8, 5])
-            with c1:
-                if st.button("💾 Save", key=f"save_prompt_{col}", use_container_width=True):
-                    save_prompt(col, prompt_text)
-                    st.success("Saved.")
-            with c2:
-                if st.button("↩️ Reset to default", key=f"reset_prompt_{col}", use_container_width=True):
-                    default = default_prompt_for(col)
-                    save_prompt(col, default)
-                    st.session_state[f"sp_prompt_{col}"] = default
-                    st.rerun()
+    prompt_key = _prompt_key(selected_columns)
+    with st.expander("Edit prompt", expanded=False):
+        active_prompt = st.text_area(
+            "Prompt",
+            value=load_prompt(selected_columns),
+            height=220,
+            key=f"sp_prompt_{prompt_key}",
+            label_visibility="collapsed",
+        )
+        c1, c2, _ = st.columns([1.2, 1.8, 5])
+        with c1:
+            if st.button("💾 Save", key=f"save_prompt_{prompt_key}", use_container_width=True):
+                save_prompt(selected_columns, active_prompt)
+                st.success("Saved.")
+        with c2:
+            if st.button("↩️ Reset to default", key=f"reset_prompt_{prompt_key}", use_container_width=True):
+                default = default_prompt_for(selected_columns)
+                save_prompt(selected_columns, default)
+                st.session_state[f"sp_prompt_{prompt_key}"] = default
+                st.rerun()
 else:
-    prompts = {}
+    active_prompt = ""
 
 # =========================================================
 # LOAD EXISTING RESULTS
@@ -381,21 +420,24 @@ if not api_key:
 # BUILD WORK LIST
 # =========================================================
 
-work_items: list[tuple[str, str]] = []   # (specimen_name, column)
+work_items: list[str] = []   # specimen names
+output_keys = [f"{col}_second_parse" for col in selected_columns]
 
+# Eligible: non-empty in at least one selected column, optionally not checked
+base_mask = pd.Series([False] * len(df))
 for col in selected_columns:
-    mask = df[col].str.strip() != ""
-    if skip_checked:
-        mask &= df.get("Manually checked", pd.Series(["no"] * len(df))) != "yes"
-    eligible = df[mask]
-    for specimen_name in eligible["Specimen.image"]:
-        output_key = f"{col}_second_parse"
-        if (
-            specimen_name in existing_results
-            and output_key in existing_results[specimen_name]
-        ):
-            continue   # already done in a previous run
-        work_items.append((specimen_name, col))
+    base_mask |= df[col].str.strip() != ""
+if skip_checked:
+    base_mask &= df.get("Manually checked", pd.Series(["no"] * len(df))) != "yes"
+eligible = df[base_mask]
+
+for specimen_name in eligible["Specimen.image"]:
+    if (
+        specimen_name in existing_results
+        and all(k in existing_results[specimen_name] for k in output_keys)
+    ):
+        continue   # all output keys already present for this specimen
+    work_items.append(specimen_name)
 
 if not work_items:
     st.success("Nothing to do — all eligible rows already have second-parse results.")
@@ -437,14 +479,14 @@ def write_results() -> None:
 
 interrupted = False
 
+safe_cols_key = re.sub(r"[^\w\-]", "_", _prompt_key(selected_columns))
+
 try:
-    for idx, (specimen_name, col) in enumerate(work_items):
+    for idx, specimen_name in enumerate(work_items):
         progress_bar.progress(idx / len(work_items), text=f"{idx}/{len(work_items)}")
 
-        output_key = f"{col}_second_parse"
-        safe_col   = re.sub(r"[^\w\-]", "_", col)
-        safe_spec  = re.sub(r"[^\w\-]", "_", Path(specimen_name).stem)
-        raw_path   = RAW_RESPONSE_DIR / f"{safe_spec}__{safe_col}.txt"
+        safe_spec = re.sub(r"[^\w\-]", "_", Path(specimen_name).stem)
+        raw_path  = RAW_RESPONSE_DIR / f"{safe_spec}__{safe_cols_key}.txt"
 
         if specimen_name not in existing_results:
             existing_results[specimen_name] = {"Specimen.image": specimen_name}
@@ -455,15 +497,16 @@ try:
             if reuse_responses and raw_path.exists():
                 raw_text = raw_path.read_text(encoding="utf-8")
                 reused_from_disk += 1
-                status_box.write(f"♻ {specimen_name} / **{col}** — re-parsed from disk")
+                status_box.write(f"♻ {specimen_name} — re-parsed from disk")
 
             else:
-                crops = labels_for_column(specimen_name, col, ocr_df)
+                crops = labels_for_columns(specimen_name, selected_columns, ocr_df)
 
                 if not crops:
-                    status_box.write(f"⚠ {specimen_name} / **{col}** — no crops found, skipping")
-                    failed.append((f"{specimen_name} / {col}", "No crop images found"))
-                    existing_results[specimen_name][output_key] = ""
+                    status_box.write(f"⚠ {specimen_name} — no crops found, skipping")
+                    failed.append((specimen_name, "No crop images found"))
+                    for key in output_keys:
+                        existing_results[specimen_name][key] = ""
                     continue
 
                 image_blocks = [
@@ -475,11 +518,9 @@ try:
                     for crop in crops
                 ]
 
-                prompt_text = prompts.get(col, load_prompt(col))
-
                 response = client.responses.create(
                     model=model_name,
-                    instructions=prompt_text,
+                    instructions=active_prompt,
                     input=[{"role": "user", "content": image_blocks}],
                 )
 
@@ -495,36 +536,27 @@ try:
                 raw_text = response.output_text
 
                 status_box.write(
-                    f"✅ {specimen_name} / **{col}** — "
+                    f"✅ {specimen_name} — "
                     f"{len(crops)} label(s) sent | "
                     f"tokens: {response.usage.total_tokens if response.usage else '?'}"
                 )
 
-            # Parse value from JSON response
+            # Parse JSON — extract one value per selected column
             parsed = extract_json(raw_text)
-            value  = None
-            for key in [col, col.replace(".", "_"), col.lower()]:
-                if key in parsed:
-                    v = parsed[key]
-                    value = (
-                        "" if (v is None or str(v).strip().lower() in ("null", "none", ""))
-                        else str(v).strip()
-                    )
-                    break
-
-            if value is None:
-                for v in parsed.values():
-                    if v is not None and str(v).strip().lower() not in ("null", "none", ""):
-                        value = str(v).strip()
-                        break
-                value = value or ""
-
-            existing_results[specimen_name][output_key] = value
+            for col in selected_columns:
+                output_key = f"{col}_second_parse"
+                v = parsed.get(col) or parsed.get(col.lower()) or parsed.get(col.replace(".", "_"))
+                value = (
+                    "" if (v is None or str(v).strip().lower() in ("null", "none", ""))
+                    else str(v).strip()
+                )
+                existing_results[specimen_name][output_key] = value
 
         except Exception as e:
-            status_box.write(f"❌ {specimen_name} / **{col}**: {type(e).__name__}: {e}")
-            failed.append((f"{specimen_name} / {col}", f"{type(e).__name__}: {e}"))
-            existing_results[specimen_name][output_key] = ""
+            status_box.write(f"❌ {specimen_name}: {type(e).__name__}: {e}")
+            failed.append((specimen_name, f"{type(e).__name__}: {e}"))
+            for key in output_keys:
+                existing_results[specimen_name][key] = ""
 
         if (idx + 1) % 10 == 0:
             write_results()
@@ -554,7 +586,7 @@ st.subheader("Run complete" if not interrupted else "Run interrupted")
 
 col_l, col_r = st.columns(2)
 with col_l:
-    st.metric("Items processed", len(work_items) - len(failed))
+    st.metric("Specimens processed", len(work_items) - len(failed))
     st.metric("New API calls", api_calls)
     st.metric("Re-used from disk", reused_from_disk)
 with col_r:
@@ -578,3 +610,89 @@ if OUTPUT_CSV.exists():
     st.divider()
     st.subheader("Preview")
     st.dataframe(pd.read_csv(OUTPUT_CSV, dtype=str), use_container_width=True, hide_index=True)
+
+# =========================================================
+# COMPARISON WITH CORRECTED METADATA
+# =========================================================
+
+if OUTPUT_CSV.exists() and CORRECTED_CSV.exists():
+    st.divider()
+    st.subheader("Comparison with corrected metadata")
+    st.caption(
+        "Compares second-parse values against the ground-truth values in "
+        "`corrected_metadata.csv`. Both sides are lowercased and stripped for comparison."
+    )
+
+    sp_df   = pd.read_csv(OUTPUT_CSV,    dtype=str).fillna("")
+    corr_df = pd.read_csv(CORRECTED_CSV, dtype=str).fillna("")
+
+    # Only compare columns that exist in both files
+    comparable_cols = [
+        c for c in selected_columns
+        if f"{c}_second_parse" in sp_df.columns and c in corr_df.columns
+    ]
+
+    if not comparable_cols:
+        st.info(
+            "No overlap between selected columns and corrected_metadata.csv. "
+            "Make sure the corrected CSV has matching column names."
+        )
+    else:
+        merged = sp_df.merge(
+            corr_df[["Specimen.image"] + comparable_cols],
+            on="Specimen.image",
+            how="inner",
+            suffixes=("_sp", "_corr"),
+        )
+
+        if merged.empty:
+            st.warning("No matching Specimen.image entries between the two files.")
+        else:
+            summary_rows = []
+            detail_frames = {}
+
+            for col in comparable_cols:
+                sp_col   = f"{col}_second_parse"
+                corr_col = col  # from corrected CSV (renamed to col_corr after merge if clash)
+
+                # After merge with suffixes, corrected column might be renamed
+                if corr_col not in merged.columns and f"{col}_corr" in merged.columns:
+                    corr_col = f"{col}_corr"
+
+                # Normalise: lowercase + strip for comparison
+                sp_vals   = merged[sp_col].str.lower().str.strip()
+                corr_vals = merged[corr_col].str.lower().str.strip()
+
+                agree    = (sp_vals == corr_vals).sum()
+                disagree = (sp_vals != corr_vals).sum()
+                total    = len(merged)
+
+                summary_rows.append({
+                    "Column":       col,
+                    "Agree":        agree,
+                    "Disagree":     disagree,
+                    "Total":        total,
+                    "Agreement %":  f"{100 * agree / total:.1f}%" if total else "—",
+                })
+
+                # Build detail table for disagreements only
+                mask = sp_vals != corr_vals
+                detail = merged.loc[mask, ["Specimen.image", sp_col, corr_col]].copy()
+                detail.columns = ["Specimen", "Second-parse value", "Corrected value"]
+                detail_frames[col] = detail
+
+            # Summary table
+            summary_df = pd.DataFrame(summary_rows)
+            st.dataframe(summary_df, hide_index=True, use_container_width=True)
+
+            # Per-column expanders showing disagreements
+            for col in comparable_cols:
+                detail = detail_frames[col]
+                n_dis  = len(detail)
+                if n_dis == 0:
+                    continue
+                with st.expander(f"{col} — {n_dis} disagreement(s)"):
+                    st.dataframe(detail, hide_index=True, use_container_width=True)
+
+elif OUTPUT_CSV.exists() and not CORRECTED_CSV.exists():
+    st.info("No corrected_metadata.csv found — run Step 7 first to enable comparison.")

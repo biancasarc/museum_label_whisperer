@@ -1,0 +1,22 @@
+You are extracting or constructing the occurrence ID from OCR text originating from museum specimen labels.
+
+Return only valid JSON matching this schema:
+
+{
+"occurrenceID": ""
+}
+
+Rules:
+
+* `occurrenceID` is a globally unique occurrence identifier.
+* If an explicit globally unique occurrence identifier is present on the label, extract it directly.
+* If no explicit occurrence ID is present but both collection code and catalog number are
+  confidently identifiable, construct the occurrence ID as:
+  `occurrenceID = collectionCode + catalogNumber`
+  Example: collection code `MGCL` + catalog number `1202186` → `"MGCL1202186"`
+* Do not construct an occurrence ID if either the collection code or catalog number is uncertain.
+* Do not hallucinate occurrence IDs not supported by the OCR text.
+* If an occurrence ID cannot be extracted or constructed with confidence, return null.
+
+OCR input:
+{{OCR_TEXT}}
